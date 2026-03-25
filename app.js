@@ -355,26 +355,75 @@ function saveNewCliente(){var name=document.getElementById('new-cliente-name').v
 function saveNewArticle(){var code=document.getElementById('new-code').value.trim();var codeForn=document.getElementById('new-code-forn').value.trim();var desc=document.getElementById('new-desc').value.trim();var cat=document.getElementById('new-cat').value;var fornitore=document.getElementById('new-fornitore').value.trim();var cliente=document.getElementById('new-cliente').value.trim();var qty=parseInt(document.getElementById('new-qty').value)||0;var min=parseInt(document.getElementById('new-min').value)||5;var udm=document.getElementById('new-udm')?.value||'cartoni';var preOrdine=parseInt(document.getElementById('new-preordine').value)||Math.round(min*1.3);var corsia=document.getElementById('new-corsia')?.value.trim()||'';var corsiaFoto=_corsiaPhotoData;var pezziPerCartone=parseInt(document.getElementById('new-pezzi-cartone')?.value)||0;if(!code||!desc){alert('Inserisci codice e descrizione');return;}if(fornitore&&!fornitori.find(f=>f.nome===fornitore))fornitori.push({nome:fornitore,email:'',logo:''});var editId=parseInt(document.getElementById('modal-overlay').dataset.editId);if(editId){var a=inventario.find(x=>x.id===editId);if(a)Object.assign(a,{code,codeForn,desc,cat,fornitore,cliente,qty,min,preOrdine,corsia,corsiaFoto,udm,pezziPerCartone});showToast('Articolo aggiornato');}else{inventario.push({id:nextId++,code,codeForn,desc,cat,fornitore,cliente,qty,min,preOrdine,corsia,corsiaFoto,ordinato:false,udm,pezziPerCartone});showToast('Articolo aggiunto');}closeModal();if(activeInvTab==='fornitori')renderFornitori();else if(activeInvTab==='clienti')renderClienti();else renderInventario();updateStats();saveData();popolaDatalistUscita();}
 
 
+// === COMPRIMI FOTO PER API ===
+function compressForAPI(file,maxPx,quality){
+  return new Promise(function(resolve,reject){
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      var img=new Image();
+      img.onload=function(){
+        var c=document.createElement('canvas');
+        var ratio=Math.min(maxPx/Math.max(img.width,img.height),1);
+        c.width=Math.round(img.width*ratio);
+        c.height=Math.round(img.height*ratio);
+        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+        var dataUrl=c.toDataURL('image/jpeg',quality||0.5);
+        resolve(dataUrl);
+      };
+      img.onerror=function(){reject(new Error('Impossibile leggere immagine'));};
+      img.src=ev.target.result;
+    };
+    reader.onerror=function(){reject(new Error('Errore lettura file'));};
+    reader.readAsDataURL(file);
+  });
+}
+
+async function callGroqVision(apiKey,imageDataUrl,prompt){
+  var b64=imageDataUrl.split(',')[1];
+  var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+    body:JSON.stringify({
+      model:'llama-3.2-11b-vision-preview',
+      max_tokens:800,
+      temperature:0.1,
+      messages:[{role:'user',content:[
+        {type:'text',text:prompt},
+        {type:'image_url',image_url:{url:imageDataUrl}}
+      ]}]
+    })
+  });
+  var data=await resp.json();
+  if(!resp.ok)throw new Error(data.error?.message||'Errore API '+resp.status);
+  return data.choices?.[0]?.message?.content||'';
+}
+
 // === NUOVO ARTICOLO DA FOTO ===
 async function nuovoArticoloDaFoto(){
   var input=document.createElement('input');input.type='file';input.accept='image/*';input.capture='environment';
   input.onchange=async function(e){
     var file=e.target.files[0];if(!file)return;
-    showToast('Analizzo la foto...');
+    showToast('Comprimo e analizzo la foto...');
     var apiKey=localStorage.getItem('mag_apikey');
-    if(!apiKey){showToast('Inserisci prima la chiave API');return;}
+    if(!apiKey){showToast('Inserisci prima la chiave API nelle impostazioni');return;}
     try{
-      var b64=await fileToBase64(file);
-      var prompt='Analizza questa foto di un prodotto/cartone. Estrai le informazioni visibili. Rispondi SOLO con JSON: {"code":"codice prodotto","desc":"descrizione","fornitore":"nome fornitore se visibile","qty":"quantita se visibile"}. Se un campo non e visibile, lascialo vuoto stringa.';
-      var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'llama-3.2-11b-vision-preview',max_tokens:500,messages:[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:'data:'+file.type+';base64,'+b64}}]}]})});
-      var data=await resp.json();var text=data.choices?.[0]?.message?.content||'';
-      var clean=text.replace(/```json|```/g,'').trim();var info=JSON.parse(clean);
+      var dataUrl=await compressForAPI(file,512,0.5);
+      showToast('Foto compressa, invio all\u2019AI...');
+      var prompt='Analizza questa foto di un prodotto o cartone. Estrai le informazioni visibili. Rispondi SOLO con un oggetto JSON valido, niente altro testo: {"code":"codice articolo","desc":"descrizione prodotto","fornitore":"nome produttore","qty":"quantita"}. Campi non visibili lascia stringa vuota.';
+      var text=await callGroqVision(apiKey,dataUrl,prompt);
+      var clean=text.replace(/```json|```/g,'').trim();
+      var jsonMatch=clean.match(/\{[^}]+\}/);
+      if(!jsonMatch)throw new Error('Nessun JSON nella risposta');
+      var info=JSON.parse(jsonMatch[0]);
       document.getElementById('new-code').value=info.code||'';
       document.getElementById('new-desc').value=info.desc||'';
       document.getElementById('new-fornitore').value=info.fornitore||'';
       if(info.qty)document.getElementById('new-qty').value=info.qty;
-      openModal();showToast('Campi precompilati dalla foto');
-    }catch(err){showToast('Errore lettura: '+err.message);openModal();}
+      openModal();showToast('\u2705 Campi precompilati dalla foto!');
+    }catch(err){
+      showToast('\u274C '+err.message);
+      openModal();
+    }
   };input.click();
 }
 
@@ -386,19 +435,20 @@ async function processFile(file,type){var isUscita=type==='pdf'||type==='foto-us
 var apiKey=localStorage.getItem('mag_apikey')||'';
 if(!apiKey){addLog('\u26A0 Chiave API mancante! Vai in Impostazioni.','',1000);procEl.classList.remove('active');return;}
 var messages=[];
+var modelToUse='llama-3.3-70b-versatile';
 if(isImage){
-  // Comprimi immagine prima di inviarla
-  var compB64=b64;
-  try{compB64=await new Promise(function(resolve){var img=new Image();img.onload=function(){var c=document.createElement('canvas');var ratio=Math.min(1024/img.width,1);c.width=Math.round(img.width*ratio);c.height=Math.round(img.height*ratio);c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',0.8).split(',')[1]);};img.onerror=function(){resolve(b64);};img.src='data:'+file.type+';base64,'+b64;});}catch(ce){compB64=b64;}
-  messages=[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+compB64}}]}];
+  addLog('Comprimo immagine...','',900);
+  var dataUrl=await compressForAPI(file,512,0.5);
+  addLog('Foto compressa, invio...','',1100);
+  messages=[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:dataUrl}}]}];
+  modelToUse='llama-3.2-11b-vision-preview';
 }else{
   messages=[{role:'user',content:prompt}];
 }
-var modelToUse=isImage?'llama-3.2-11b-vision-preview':'llama-3.3-70b-versatile';
-addLog('Modello: '+modelToUse,'',1000);
+addLog('Modello: '+modelToUse,'',1300);
 var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:modelToUse,max_tokens:1000,messages:messages})});
 var data=await resp.json();
-if(!resp.ok){addLog('\u274C Errore API: '+(data.error?.message||resp.status),'',1200);setTimeout(function(){procEl.classList.remove('active');},2000);return;}
+if(!resp.ok){var errMsg=data.error?.message||('Errore '+resp.status);addLog('\u274C '+errMsg,'',1500);showToast('Errore API: '+errMsg);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
 var text=data.choices?.[0]?.message?.content||'';
 addLog('Risposta AI: '+text.substring(0,80)+'...','',1200);
 var clean=text.replace(/```json|```/g,'').trim();
@@ -859,20 +909,20 @@ function toggleVoice(){
   }else{stopGinoMic();ginoContinuous=false;}
 }
 function closeGino(){
-  // Minimizza ma NON ferma la voce
-  var panel=document.getElementById('gino-panel');
-  if(panel)panel.classList.remove('active');
-  // Mostra mini-bar
-  var mini=document.getElementById('gino-mini');
-  if(mini)mini.style.display='flex';
-  // NON fermare mic se in ascolto continuo
-  if(!ginoContinuous){ginoOpen=false;}
+  // Chiude tutto - ferma voce e microfono
+  ginoOpen=false;stopGinoMic();ginoContinuous=false;
+  if(window.speechSynthesis)window.speechSynthesis.cancel();
+  var panel=document.getElementById('gino-panel');if(panel)panel.classList.remove('active');
+  var mini=document.getElementById('gino-mini');if(mini)mini.style.display='none';
+}
+function minimizeGino(){
+  // Riduce a mini-bar ma la voce continua
+  var panel=document.getElementById('gino-panel');if(panel)panel.classList.remove('active');
+  var mini=document.getElementById('gino-mini');if(mini)mini.style.display='flex';
 }
 function openGinoFull(){
-  var panel=document.getElementById('gino-panel');
-  if(panel)panel.classList.add('active');
-  var mini=document.getElementById('gino-mini');
-  if(mini)mini.style.display='none';
+  var panel=document.getElementById('gino-panel');if(panel)panel.classList.add('active');
+  var mini=document.getElementById('gino-mini');if(mini)mini.style.display='none';
   ginoOpen=true;
 }
 function appendGinoMsg(role,text){var chat=document.getElementById('gino-chat');if(!chat)return;var div=document.createElement('div');div.className='gino-msg gino-msg-'+role;div.textContent=text;chat.appendChild(div);chat.scrollTop=chat.scrollHeight;}
@@ -882,7 +932,7 @@ if(window.speechSynthesis&&window.speechSynthesis.speaking)window.speechSynthesi
 ginoRecognition=new SR();ginoRecognition.lang='it-IT';ginoRecognition.continuous=false;ginoRecognition.interimResults=false;ginoRecognition.onstart=function(){ginoListening=true;var btn=document.getElementById('gino-mic-btn');var lbl=document.getElementById('gino-listening-label');if(btn){btn.style.background='#90cdf433';btn.style.border='2px solid #90cdf4';}if(lbl)lbl.style.display='block';};ginoRecognition.onresult=function(e){var transcript=e.results[0][0].transcript.trim();if(ginoContinuous&&['stop','fine','basta','fermati'].includes(transcript.toLowerCase())){ginoContinuous=false;stopGinoMic();appendGinoMsg('assistant','Ok, a dopo!');ginoParla('Ok, a dopo!');return;}document.getElementById('gino-input').value=transcript;stopGinoMic();sendGinoMsg();};ginoRecognition.onerror=function(e){stopGinoMic();if(e.error==='no-speech'&&ginoContinuous)setTimeout(()=>{if(ginoContinuous&&ginoOpen)startGinoMic();},500);};ginoRecognition.onend=function(){ginoListening=false;var btn=document.getElementById('gino-mic-btn');var lbl=document.getElementById('gino-listening-label');if(btn){btn.style.background=ginoContinuous?'#90cdf422':'#1a1a1a';btn.style.border=ginoContinuous?'2px solid #90cdf4':'1px solid #3a3a3a';}if(lbl)lbl.style.display=ginoContinuous?'block':'none';if(ginoContinuous&&ginoOpen)setTimeout(()=>{if(ginoContinuous)startGinoMic();},400);};ginoRecognition.start();}
 function startGinoContinuous(){ginoContinuous=true;showToast('Ascolto continuo — dì STOP per fermare');startGinoMic();}
 function stopGinoMic(){ginoListening=false;if(ginoRecognition)try{ginoRecognition.stop();}catch(e){}ginoRecognition=null;if(!ginoContinuous){var btn=document.getElementById('gino-mic-btn');var lbl=document.getElementById('gino-listening-label');if(btn){btn.style.background='#1a1a1a';btn.style.border='1px solid #3a3a3a';}if(lbl)lbl.style.display='none';}}
-function ginoParla(testo){if(!window.speechSynthesis)return;window.speechSynthesis.cancel();function speak(t){var voci=window.speechSynthesis.getVoices();if(voci.length===0&&t<15){setTimeout(()=>speak(t+1),200);return;}var utterance=new SpeechSynthesisUtterance(testo);utterance.lang='it-IT';utterance.rate=0.92;utterance.pitch=0.88;var voce=null;var maleVoices=['luca','giorgio','andrea','google italiano','male','it-it-standard-c','it-it-wavenet-c'];for(var vi=0;vi<voci.length;vi++){var vnm=(voci[vi].name+' '+voci[vi].voiceURI).toLowerCase();for(var mn=0;mn<maleVoices.length;mn++){if(vnm.indexOf(maleVoices[mn])!==-1&&voci[vi].lang.startsWith('it')){voce=voci[vi];break;}}if(voce)break;}if(!voce){var femaleNames=['alice','elsa','federica','female','donna'];for(var vj=0;vj<voci.length;vj++){if(voci[vj].lang.startsWith('it')){var isFemale=false;var vnf=voci[vj].name.toLowerCase();for(var fn=0;fn<femaleNames.length;fn++){if(vnf.indexOf(femaleNames[fn])!==-1){isFemale=true;break;}}if(!isFemale){voce=voci[vj];break;}}}if(!voce)for(var vk=0;vk<voci.length;vk++){if(voci[vk].lang.startsWith('it')){voce=voci[vk];break;}}}if(voce)utterance.voice=voce;
+function ginoParla(testo){if(!window.speechSynthesis)return;window.speechSynthesis.cancel();function speak(t){var voci=window.speechSynthesis.getVoices();if(voci.length===0&&t<15){setTimeout(()=>speak(t+1),200);return;}var utterance=new SpeechSynthesisUtterance(testo);utterance.lang='it-IT';utterance.rate=0.9;utterance.pitch=0.85;utterance.volume=1.0;var voce=null;var maleVoices=['luca','giorgio','andrea','google italiano','male','it-it-standard-c','it-it-wavenet-c'];for(var vi=0;vi<voci.length;vi++){var vnm=(voci[vi].name+' '+voci[vi].voiceURI).toLowerCase();for(var mn=0;mn<maleVoices.length;mn++){if(vnm.indexOf(maleVoices[mn])!==-1&&voci[vi].lang.startsWith('it')){voce=voci[vi];break;}}if(voce)break;}if(!voce){var femaleNames=['alice','elsa','federica','female','donna'];for(var vj=0;vj<voci.length;vj++){if(voci[vj].lang.startsWith('it')){var isFemale=false;var vnf=voci[vj].name.toLowerCase();for(var fn=0;fn<femaleNames.length;fn++){if(vnf.indexOf(femaleNames[fn])!==-1){isFemale=true;break;}}if(!isFemale){voce=voci[vj];break;}}}if(!voce)for(var vk=0;vk<voci.length;vk++){if(voci[vk].lang.startsWith('it')){voce=voci[vk];break;}}}if(voce)utterance.voice=voce;
 var onEndFired=false;
 function riavviaMic(){if(onEndFired)return;onEndFired=true;if(ginoContinuous&&ginoOpen){setTimeout(function(){window.speechSynthesis.cancel();setTimeout(function(){if(ginoContinuous&&ginoOpen&&!ginoListening)startGinoMic();},300);},200);}}
 utterance.onend=riavviaMic;
@@ -937,21 +987,27 @@ try{
 
   var replyText=rawReply;
   try{
-    var jsonStart=rawReply.indexOf('{');var jsonEnd=rawReply.lastIndexOf('}');
-    if(jsonStart!==-1&&jsonEnd!==-1&&jsonEnd>jsonStart){
-      var jsonStr=rawReply.substring(jsonStart,jsonEnd+1);
-      var parsed=JSON.parse(jsonStr);
-      if(parsed.azione){
+    // Trova TUTTI gli oggetti JSON nella risposta
+    var jsonObjects=[];
+    var braceDepth=0,objStart=-1;
+    for(var ci=0;ci<rawReply.length;ci++){
+      if(rawReply[ci]==='{'){if(braceDepth===0)objStart=ci;braceDepth++;}
+      else if(rawReply[ci]==='}'){braceDepth--;if(braceDepth===0&&objStart!==-1){try{var obj=JSON.parse(rawReply.substring(objStart,ci+1));if(obj.azione)jsonObjects.push(obj);}catch(pe){}objStart=-1;}}
+    }
+    if(jsonObjects.length>0){
+      var risposte=[];
+      jsonObjects.forEach(function(parsed){
         if(parsed.azione==='conferma'){
           ginoPendingAction=parsed.params?.azione_pendente||null;
-          replyText=parsed.risposta||'Confermi?';
+          risposte.push(parsed.risposta||'Confermi?');
         }else{
           var risultato=ginoEseguiAzione(parsed.azione,parsed.params||{});
-          replyText=parsed.risposta?(parsed.risposta+' '+risultato):risultato;
+          risposte.push(risultato);
         }
-      }
+      });
+      replyText=risposte.join(' ');
     }
-  }catch(jsonErr){}
+  }catch(jsonErr){console.warn('GINO parse error',jsonErr);}
 
   appendGinoMsg('assistant',replyText);
   ginoHistory.push({role:'assistant',content:rawReply});
