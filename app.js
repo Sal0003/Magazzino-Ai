@@ -360,18 +360,30 @@ function compressForAPI(file,maxPx,quality){
   return new Promise(function(resolve,reject){
     var reader=new FileReader();
     reader.onload=function(ev){
+      var dataUrl=ev.target.result;
+      // Prova a comprimere via canvas
       var img=new Image();
       img.onload=function(){
-        var c=document.createElement('canvas');
-        var ratio=Math.min(maxPx/Math.max(img.width,img.height),1);
-        c.width=Math.round(img.width*ratio);
-        c.height=Math.round(img.height*ratio);
-        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-        var dataUrl=c.toDataURL('image/jpeg',quality||0.5);
+        try{
+          var c=document.createElement('canvas');
+          var ratio=Math.min(maxPx/Math.max(img.width,img.height),1);
+          c.width=Math.round(img.width*ratio);
+          c.height=Math.round(img.height*ratio);
+          c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+          var compressed=c.toDataURL('image/jpeg',quality||0.5);
+          resolve(compressed);
+        }catch(e){
+          // Se canvas fallisce, usa originale
+          resolve(dataUrl);
+        }
+      };
+      img.onerror=function(){
+        // DNG/HEIC/RAW: il browser non riesce a caricare l'immagine
+        // Restituisci il dataURL originale (l'API gestirà il formato)
+        console.warn('Formato non comprimibile, invio originale');
         resolve(dataUrl);
       };
-      img.onerror=function(){reject(new Error('Impossibile leggere immagine'));};
-      img.src=ev.target.result;
+      img.src=dataUrl;
     };
     reader.onerror=function(){reject(new Error('Errore lettura file'));};
     reader.readAsDataURL(file);
@@ -384,7 +396,7 @@ async function callGroqVision(apiKey,imageDataUrl,prompt){
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
     body:JSON.stringify({
-      model:'llama-3.2-11b-vision-preview',
+      model:'meta-llama/llama-4-scout-17b-16e-instruct',
       max_tokens:800,
       temperature:0.1,
       messages:[{role:'user',content:[
@@ -441,7 +453,7 @@ if(isImage){
   var dataUrl=await compressForAPI(file,512,0.5);
   addLog('Foto compressa, invio...','',1100);
   messages=[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:dataUrl}}]}];
-  modelToUse='llama-3.2-11b-vision-preview';
+  modelToUse='meta-llama/llama-4-scout-17b-16e-instruct';
 }else{
   messages=[{role:'user',content:prompt}];
 }
