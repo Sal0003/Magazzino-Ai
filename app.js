@@ -412,7 +412,7 @@ async function callGroqVision(apiKey,imageDataUrl,prompt){
 
 // === NUOVO ARTICOLO DA FOTO ===
 async function nuovoArticoloDaFoto(){
-  var input=document.createElement('input');input.type='file';input.accept='image/*';input.capture='environment';
+  var input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.capture='environment';
   input.onchange=async function(e){
     var file=e.target.files[0];if(!file)return;
     showToast('Comprimo e analizzo la foto...');
@@ -443,7 +443,11 @@ async function nuovoArticoloDaFoto(){
 // FILE HANDLING & AI
 // ============================================================
 function dragOver(e,id){e.preventDefault();document.getElementById(id).classList.add('dragover');}function dragLeave(id){document.getElementById(id).classList.remove('dragover');}function dropFile(e,type){e.preventDefault();var dropId=type==='foto'?'drop-foto':type==='foto-uscita'?'drop-foto-uscita':'drop-pdf';dragLeave(dropId);var file=e.dataTransfer.files[0];if(file)processFile(file,type).catch(()=>{});}function handleFile(e,type){var file=e.target.files[0];if(file)processFile(file,type);}
-async function processFile(file,type){var isUscita=type==='pdf'||type==='foto-uscita';var procEl=document.getElementById('ai-proc-'+(isUscita?'uscita':'entrata'));var logEl=document.getElementById('ai-log-'+(isUscita?'uscita':'entrata'));procEl.classList.add('active');logEl.innerHTML='';var addLog=(msg,cls,delay)=>{setTimeout(()=>{var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);},delay||0);};addLog('File ricevuto: '+file.name,'ok',0);addLog('Invio all\'AI...','ok',400);var b64=await fileToBase64(file);var isImage=file.type.startsWith('image/');var prompt=type==='foto'?'Sei un sistema di gestione magazzino. Analizza questa bolla italiana. Estrai TUTTI gli articoli. Rispondi SOLO con JSON: [{"code":"CODICE","desc":"Descrizione","qty":NUMERO}]':'Sei un sistema di gestione magazzino. Analizza questo documento italiano. Estrai TUTTI gli articoli consegnati. Rispondi SOLO con JSON: [{"code":"CODICE","desc":"Descrizione","qty":NUMERO}]';try{addLog('Lettura in corso...',0,800);
+async function processFile(file,type){var isUscita=type==='pdf'||type==='foto-uscita';var procEl=document.getElementById('ai-proc-'+(isUscita?'uscita':'entrata'));var logEl=document.getElementById('ai-log-'+(isUscita?'uscita':'entrata'));procEl.classList.add('active');logEl.innerHTML='';var addLog=(msg,cls,delay)=>{setTimeout(()=>{var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);},delay||0);};addLog('File ricevuto: '+file.name,'ok',0);
+// Check formato non supportato
+var ext=file.name.split('.').pop().toLowerCase();
+if(['dng','raw','cr2','nef','arw','orf','rw2'].indexOf(ext)!==-1){addLog('\u274C Formato RAW non supportato. Scatta la foto direttamente dall\'app.','',400);setTimeout(function(){procEl.classList.remove('active');showToast('Formato RAW non supportato — scatta la foto direttamente');},2000);return;}
+addLog('Invio all\'AI...','ok',400);var b64=await fileToBase64(file);var isImage=file.type.startsWith('image/');var prompt=type==='foto'?'Sei un sistema di gestione magazzino. Analizza questa bolla italiana. Estrai TUTTI gli articoli. Rispondi SOLO con JSON: [{"code":"CODICE","desc":"Descrizione","qty":NUMERO}]':'Sei un sistema di gestione magazzino. Analizza questo documento italiano. Estrai TUTTI gli articoli consegnati. Rispondi SOLO con JSON: [{"code":"CODICE","desc":"Descrizione","qty":NUMERO}]';try{addLog('Lettura in corso...',0,800);
 var apiKey=localStorage.getItem('mag_apikey')||'';
 if(!apiKey){addLog('\u26A0 Chiave API mancante! Vai in Impostazioni.','',1000);procEl.classList.remove('active');return;}
 var messages=[];
@@ -944,13 +948,55 @@ if(window.speechSynthesis&&window.speechSynthesis.speaking)window.speechSynthesi
 ginoRecognition=new SR();ginoRecognition.lang='it-IT';ginoRecognition.continuous=false;ginoRecognition.interimResults=false;ginoRecognition.onstart=function(){ginoListening=true;var btn=document.getElementById('gino-mic-btn');var lbl=document.getElementById('gino-listening-label');if(btn){btn.style.background='#90cdf433';btn.style.border='2px solid #90cdf4';}if(lbl)lbl.style.display='block';};ginoRecognition.onresult=function(e){var transcript=e.results[0][0].transcript.trim();if(ginoContinuous&&['stop','fine','basta','fermati'].includes(transcript.toLowerCase())){ginoContinuous=false;stopGinoMic();appendGinoMsg('assistant','Ok, a dopo!');ginoParla('Ok, a dopo!');return;}document.getElementById('gino-input').value=transcript;stopGinoMic();sendGinoMsg();};ginoRecognition.onerror=function(e){stopGinoMic();if(e.error==='no-speech'&&ginoContinuous)setTimeout(()=>{if(ginoContinuous&&ginoOpen)startGinoMic();},500);};ginoRecognition.onend=function(){ginoListening=false;var btn=document.getElementById('gino-mic-btn');var lbl=document.getElementById('gino-listening-label');if(btn){btn.style.background=ginoContinuous?'#90cdf422':'#1a1a1a';btn.style.border=ginoContinuous?'2px solid #90cdf4':'1px solid #3a3a3a';}if(lbl)lbl.style.display=ginoContinuous?'block':'none';if(ginoContinuous&&ginoOpen)setTimeout(()=>{if(ginoContinuous)startGinoMic();},400);};ginoRecognition.start();}
 function startGinoContinuous(){ginoContinuous=true;showToast('Ascolto continuo — dì STOP per fermare');startGinoMic();}
 function stopGinoMic(){ginoListening=false;if(ginoRecognition)try{ginoRecognition.stop();}catch(e){}ginoRecognition=null;if(!ginoContinuous){var btn=document.getElementById('gino-mic-btn');var lbl=document.getElementById('gino-listening-label');if(btn){btn.style.background='#1a1a1a';btn.style.border='1px solid #3a3a3a';}if(lbl)lbl.style.display='none';}}
-function ginoParla(testo){if(!window.speechSynthesis)return;window.speechSynthesis.cancel();function speak(t){var voci=window.speechSynthesis.getVoices();if(voci.length===0&&t<15){setTimeout(()=>speak(t+1),200);return;}var utterance=new SpeechSynthesisUtterance(testo);utterance.lang='it-IT';utterance.rate=0.9;utterance.pitch=0.85;utterance.volume=1.0;var voce=null;var maleVoices=['luca','giorgio','andrea','google italiano','male','it-it-standard-c','it-it-wavenet-c'];for(var vi=0;vi<voci.length;vi++){var vnm=(voci[vi].name+' '+voci[vi].voiceURI).toLowerCase();for(var mn=0;mn<maleVoices.length;mn++){if(vnm.indexOf(maleVoices[mn])!==-1&&voci[vi].lang.startsWith('it')){voce=voci[vi];break;}}if(voce)break;}if(!voce){var femaleNames=['alice','elsa','federica','female','donna'];for(var vj=0;vj<voci.length;vj++){if(voci[vj].lang.startsWith('it')){var isFemale=false;var vnf=voci[vj].name.toLowerCase();for(var fn=0;fn<femaleNames.length;fn++){if(vnf.indexOf(femaleNames[fn])!==-1){isFemale=true;break;}}if(!isFemale){voce=voci[vj];break;}}}if(!voce)for(var vk=0;vk<voci.length;vk++){if(voci[vk].lang.startsWith('it')){voce=voci[vk];break;}}}if(voce)utterance.voice=voce;
-var onEndFired=false;
-function riavviaMic(){if(onEndFired)return;onEndFired=true;if(ginoContinuous&&ginoOpen){setTimeout(function(){window.speechSynthesis.cancel();setTimeout(function(){if(ginoContinuous&&ginoOpen&&!ginoListening)startGinoMic();},300);},200);}}
-utterance.onend=riavviaMic;
-var stimaDurata=Math.max(2000,testo.length*80+1000);
-setTimeout(function(){if(!onEndFired)riavviaMic();},stimaDurata);
-window.speechSynthesis.speak(utterance);}speak(0);}
+function ginoParla(testo){if(!window.speechSynthesis)return;window.speechSynthesis.cancel();
+// Attendi che le voci siano caricate (iOS è lento)
+function doSpeak(){
+  var voci=window.speechSynthesis.getVoices();
+  var utterance=new SpeechSynthesisUtterance(testo);
+  utterance.lang='it-IT';utterance.rate=0.9;utterance.pitch=0.85;utterance.volume=1.0;
+  // Cerca voce maschile italiana - prima Luca specificamente
+  var voce=null;
+  for(var i=0;i<voci.length;i++){
+    var n=voci[i].name.toLowerCase();
+    if(n.indexOf('luca')!==-1){voce=voci[i];break;}
+  }
+  // Se non trova Luca, cerca altre voci maschili italiane
+  if(!voce){
+    var maschili=['giorgio','andrea','marco','paolo','matteo','male'];
+    for(var j=0;j<voci.length;j++){
+      var nm=voci[j].name.toLowerCase();
+      if(!voci[j].lang.startsWith('it'))continue;
+      for(var k=0;k<maschili.length;k++){if(nm.indexOf(maschili[k])!==-1){voce=voci[j];break;}}
+      if(voce)break;
+    }
+  }
+  // Se ancora nulla, prendi la prima italiana NON femminile
+  if(!voce){
+    var femminili=['alice','anna','elsa','federica','silvia','paola','female','donna'];
+    for(var m=0;m<voci.length;m++){
+      if(!voci[m].lang.startsWith('it'))continue;
+      var nf=voci[m].name.toLowerCase();
+      var skip=false;
+      for(var f=0;f<femminili.length;f++){if(nf.indexOf(femminili[f])!==-1){skip=true;break;}}
+      if(!skip){voce=voci[m];break;}
+    }
+  }
+  // Ultima risorsa: prima voce italiana disponibile
+  if(!voce){for(var x=0;x<voci.length;x++){if(voci[x].lang.startsWith('it')){voce=voci[x];break;}}}
+  if(voce){utterance.voice=voce;console.log('GINO voce:',voce.name,voce.lang);}
+  else{console.log('GINO: nessuna voce italiana trovata, voci disponibili:',voci.map(function(v){return v.name+' ('+v.lang+')';}).join(', '));}
+  var onEndFired=false;
+  function riavviaMic(){if(onEndFired)return;onEndFired=true;if(ginoContinuous&&ginoOpen){setTimeout(function(){window.speechSynthesis.cancel();setTimeout(function(){if(ginoContinuous&&ginoOpen&&!ginoListening)startGinoMic();},300);},200);}}
+  utterance.onend=riavviaMic;
+  var stimaDurata=Math.max(2000,testo.length*80+1000);
+  setTimeout(function(){if(!onEndFired)riavviaMic();},stimaDurata);
+  window.speechSynthesis.speak(utterance);
+}
+// iOS: le voci potrebbero non essere pronte subito
+var v=window.speechSynthesis.getVoices();
+if(v.length>0){doSpeak();}
+else{window.speechSynthesis.onvoiceschanged=function(){window.speechSynthesis.onvoiceschanged=null;doSpeak();};setTimeout(doSpeak,500);}
+}
 async function sendGinoMsg(){
 var inp=document.getElementById('gino-input');if(!inp)return;
 var msg=inp.value.trim();if(!msg)return;inp.value='';
