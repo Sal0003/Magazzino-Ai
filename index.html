@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Magazzino</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Magazzino">
+<meta name="theme-color" content="#272727">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a0c0a'/><text y='.9em' font-size='80' x='10'>📦</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="flash-overlay" id="flash-overlay"></div>
+
+<div class="modal-overlay" id="modal-cliente" style="z-index:600">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title"><span id="mc-title">Scheda cliente</span><button onclick="document.getElementById('modal-cliente').classList.remove('active')" style="background:none;border:none;color:var(--tx2);font-size:20px;cursor:pointer;line-height:1">×</button></div>
+    <div style="display:flex;justify-content:center;margin-bottom:20px"><div id="mc-avatar-preview" class="gp-avatar" style="width:72px;height:72px;font-size:26px;cursor:pointer" onclick="triggerLogoCliente(currentClienteEdit)"></div></div>
+    <div style="text-align:center;margin-top:-10px;margin-bottom:18px;font-size:12px;color:var(--tx2)">Tocca l'avatar per caricare il logo</div>
+    <div class="form-row"><div class="form-label">Nome cliente</div><input class="form-input" id="mc-nome" disabled style="opacity:.6"></div>
+    <div style="margin-top:16px"><div style="font-family:var(--fh);font-size:13px;font-weight:700;margin-bottom:10px;color:var(--tx)">📌 Note & Appunti</div><div id="mc-note-list" style="margin-bottom:10px"></div><div style="display:flex;gap:8px"><input class="form-input" id="nc-nuova-nota-input" placeholder="es. Sconto da applicare prossimo ordine..." style="flex:1;font-size:12px"><button class="btn btn-secondary" style="font-size:12px;white-space:nowrap" onclick="aggiungiNotaCliente(currentClienteEdit)">+ Aggiungi</button></div></div>
+    <div class="modal-actions"><button class="btn btn-second" id="mc-remove-logo" onclick="removeLogoCliente(currentClienteEdit);refreshClienteModal(currentClienteEdit)" style="display:none">🗑 Rimuovi logo</button><button class="btn btn-primary" onclick="document.getElementById('modal-cliente').classList.remove('active')">Fatto</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-fornitore" style="z-index:600">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title"><span id="mf-title">Scheda fornitore</span><button onclick="document.getElementById('modal-fornitore').classList.remove('active')" style="background:none;border:none;color:var(--tx2);font-size:20px;cursor:pointer;line-height:1">×</button></div>
+    <div style="display:flex;justify-content:center;margin-bottom:20px"><div id="mf-avatar-preview" style="width:72px;height:72px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-size:26px;font-weight:800;cursor:pointer;position:relative;overflow:hidden" onclick="triggerLogoUpload(currentFornitoreEdit)"></div></div>
+    <div style="text-align:center;margin-top:-10px;margin-bottom:18px;font-size:12px;color:var(--tx2)">Tocca l'avatar per caricare il logo</div>
+    <div class="form-row"><div class="form-label">Nome fornitore</div><input class="form-input" id="mf-nome" disabled style="opacity:.6"></div>
+    <div class="form-row"><div class="form-label">Email ordini</div><input class="form-input" id="mf-email" type="email" placeholder="email@fornitore.com" onchange="setEmailFornitore(currentFornitoreEdit, this.value)"></div>
+    <div class="modal-actions"><button class="btn btn-second" id="mf-remove-logo" onclick="removeLogoFornitore(currentFornitoreEdit);refreshFornModal(currentFornitoreEdit)" style="display:none">🗑 Rimuovi logo</button><button class="btn btn-primary" onclick="document.getElementById('modal-fornitore').classList.remove('active')">Fatto</button></div>
+  </div>
+</div>
+
+<div class="alert-modal-overlay" id="alert-modal-overlay">
+  <div class="alert-modal"><div class="alert-modal-icon">🚨</div><div class="alert-modal-title">SCORTE IN ESAURIMENTO</div><div class="alert-modal-sub">I seguenti articoli richiedono riordino</div><div class="alert-modal-list" id="alert-modal-list"></div><div style="display:flex;gap:10px;margin-top:4px"><button class="alert-modal-close" style="flex:1" onclick="closeAlertModal()">Chiudi</button><button class="alert-modal-close" style="flex:1;background:var(--blue)" onclick="closeAlertModal();showView('ordini')">🛒 Vai agli Ordini</button></div></div>
+</div>
+
+<header><div class="logo">Magazzino</div><div class="header-right"><div class="header-stats-desk"><div>Articoli <strong id="stat-total">0</strong></div><div>SKU <strong id="stat-sku">0</strong></div></div><div id="alert-wrap" style="display:none"><span class="alert-badge" id="alert-count" onclick="showView('dashboard')">⚠ scorte basse</span></div><button class="header-test-btn" onclick="testAlert()">🔔</button></div></header>
+
+<nav>
+  <button class="nav-btn active" onclick="showView('dashboard')">📊 Dashboard</button>
+  <button class="nav-btn" onclick="showView('inventario')">📦 Inventario</button>
+  <button class="nav-btn" onclick="showView('entrata')">📥 Entrata Merce</button>
+  <button class="nav-btn" onclick="showView('uscita')">📤 Uscita Merce</button>
+  <button class="nav-btn" onclick="showView('movimenti')">📋 Movimenti</button>
+  <button class="nav-btn" onclick="showView('report')">📈 Report</button>
+  <button class="nav-btn" onclick="showView('note')">📝 Note</button>
+  <button class="nav-btn" onclick="showView('ordini')">🛒 Ordini</button>
+  <button class="nav-btn" onclick="showView('parcoauto')">🚛 Parco Auto</button>
+</nav>
+
+<div class="nota-alert-overlay" id="nota-alert-overlay"><div class="nota-alert-modal"><div class="nota-alert-handle"></div><div class="nota-alert-icon">📌</div><div class="nota-alert-title">Promemoria</div><div class="nota-alert-text" id="nota-alert-text"></div><button class="nota-alert-close" onclick="closeNotaAlert()">✓ Ho visto</button><button class="nota-alert-snooze" onclick="snoozeNotaAlert()">⏰ Ricordamelo tra 10 minuti</button></div></div>
+
+<main>
+<div class="view active" id="view-dashboard">
+  <div class="kpi-row">
+    <div class="kpi danger" style="cursor:pointer" onclick="showView('inventario')"><div class="kpi-label">Scorte in esaurimento</div><div class="kpi-value" id="kpi-warn">0</div><div class="kpi-sub">sotto soglia minima</div></div>
+    <div class="kpi warn" style="cursor:pointer" onclick="showView('inventario')"><div class="kpi-label">Scorte critiche</div><div class="kpi-value" id="kpi-danger">0</div><div class="kpi-sub">esauriti o quasi</div></div>
+    <div class="kpi" style="padding:12px 14px"><div class="kpi-label" style="font-size:10px">Articoli</div><div class="kpi-value" id="kpi-articoli" style="font-size:34px">0</div><div class="kpi-sub">distinti</div></div>
+    <div class="kpi blue" style="padding:12px 14px"><div class="kpi-label" style="font-size:10px">Movimenti</div><div class="kpi-value" id="kpi-mov" style="font-size:34px">0</div><div class="kpi-sub">oggi</div></div>
+    <div class="kpi gold" style="padding:12px 14px;cursor:pointer" onclick="showView('ordini')"><div class="kpi-label" style="font-size:10px">Ordini attesa</div><div class="kpi-value" id="kpi-ordini" style="font-size:34px;color:#f5c518">0</div><div class="kpi-sub" id="kpi-ordini-sub">fornitori</div></div>
+    <div class="kpi" style="padding:12px 14px;border-top-color:#f5c518;cursor:pointer;background:linear-gradient(145deg,#3a321e,var(--s2));border-color:rgba(245,197,24,.4)" onclick="showView('note')"><div class="kpi-label" style="font-size:10px">Note</div><div class="kpi-value" id="kpi-note-sospeso" style="font-size:34px;color:#f5c518">0</div><div class="kpi-sub">sospeso</div></div>
+  </div>
+  <div id="alerts-container"></div>
+  <div class="section-head" style="margin-top:18px"><div class="section-title">Ultimi movimenti</div><button class="btn-small" onclick="showView('report')" style="background:#383838;border:1px solid #333;color:#f0f0f0;font-size:12px;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px">📈 Report</button></div>
+  <div class="mov-list" id="dash-movimenti"><div class="empty-state"><div class="empty-icon">📋</div><p>Nessun movimento ancora.<br>Carica una bolla per iniziare.</p></div></div>
+</div>
+
+<div class="view" id="view-inventario">
+  <div class="inv-tabs"><button class="inv-tab active" id="tab-standard" onclick="switchInvTab('standard')">📦 Articoli standard</button><button class="inv-tab" id="tab-fornitori" onclick="switchInvTab('fornitori')">🏭 Per fornitore</button><button class="inv-tab" id="tab-clienti" onclick="switchInvTab('clienti')">👤 Clienti personalizzati</button></div>
+  <div id="inv-panel-standard">
+    <div class="section-head" style="margin-top:16px"><div class="section-title" style="font-size:14px">Tutti gli articoli</div><div class="search-box"><input type="text" id="search-input" placeholder="Cerca articolo..." oninput="debouncedRenderInventario()"><button class="filter-btn active" id="filter-all" onclick="setFilter('all')">Tutti</button><button class="filter-btn" id="filter-warn" onclick="setFilter('warn')">⚠ Scorte basse</button><button class="btn btn-secondary" onclick="nuovoArticoloDaFoto()">📷 Da foto</button><button class="btn btn-primary" onclick="openModal()">+ Nuovo articolo</button></div></div>
+    <div class="table-wrap"><div id="inv-tbody"></div></div>
+  </div>
+  <div id="inv-panel-fornitori" style="display:none"><div class="section-head" style="margin-top:16px;margin-bottom:14px"><div class="section-title" style="font-size:14px">Articoli per fornitore</div><button class="btn btn-primary" onclick="openModal()">+ Nuovo articolo</button></div><div id="fornitori-panels"></div></div>
+  <div id="inv-panel-clienti" style="display:none"><div class="section-head" style="margin-top:16px;margin-bottom:14px"><div class="section-title" style="font-size:14px">Articoli personalizzati per cliente</div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="openNuovoClienteModal()">+ Nuovo cliente</button><button class="btn btn-primary" onclick="openModal('cliente')">+ Nuovo articolo</button></div></div><div id="clienti-panels"></div></div>
+</div>
+
+<div class="view" id="view-entrata">
+  <div class="upload-grid">
+    <div class="upload-card"><h3>📷 Foto bolla fornitore</h3><p>Scatta o carica una foto alla bolla di consegna.</p><div class="drop-zone" id="drop-foto" ondragover="dragOver(event,'drop-foto')" ondragleave="dragLeave('drop-foto')" ondrop="dropFile(event,'foto')"><input type="file" accept="image/*" onchange="handleFile(event,'foto')"><div class="drop-icon">📷</div><div class="drop-text"><strong>Clicca o trascina</strong> la foto della bolla</div></div></div>
+    <div class="upload-card"><h3>📄 Aggiungi manualmente</h3><p>Hai già i dati? Aggiungi una riga di carico manuale.</p><div style="margin-top:12px"><div class="form-row"><div class="form-label">Codice / Nome articolo</div><input class="form-input" id="man-art" placeholder="es. PIATTI-23-BL"></div><div class="form-row-2"><div class="form-row"><div class="form-label">Quantità (cartoni)</div><input class="form-input" id="man-qty" type="number" min="1" placeholder="10"></div><div class="form-row" style="display:flex;align-items:flex-end"><button class="btn btn-primary" style="width:100%" onclick="addManual()">Aggiungi</button></div></div></div></div>
+  </div>
+  <div class="ai-processing" id="ai-proc-entrata"><div class="ai-header"><div class="ai-dot"></div>AI in elaborazione...</div><div class="ai-log" id="ai-log-entrata"></div></div>
+  <div class="confirm-panel" id="confirm-entrata"><div class="confirm-title">✓ Articoli rilevati — Conferma carico</div><table class="confirm-table"><thead><tr><th>Articolo</th><th>Codice</th><th>Qtà rilevata</th><th>Azione</th></tr></thead><tbody id="confirm-tbody-entrata"></tbody></table><div class="confirm-actions"><button class="btn btn-secondary" onclick="cancelConfirm('entrata')">Annulla</button><button class="btn btn-primary" onclick="applyConfirm('entrata')">✓ Conferma e aggiorna inventario</button></div></div>
+</div>
+
+<div class="view" id="view-uscita">
+  <div class="upload-grid">
+    <div class="upload-card"><h3>📷 Foto bolla cartacea</h3><p>Scatta una foto e l'AI estrae gli articoli.</p><div class="drop-zone" id="drop-foto-uscita" ondragover="dragOver(event,'drop-foto-uscita')" ondragleave="dragLeave('drop-foto-uscita')" ondrop="dropFile(event,'foto-uscita')"><input type="file" accept="image/*" onchange="handleFile(event,'foto-uscita')"><div class="drop-icon">📷</div><div class="drop-text"><strong>Clicca o trascina</strong> la foto della bolla</div></div></div>
+    <div class="upload-card"><h3>📄 PDF bolle di consegna</h3><p>Carica un PDF e l'AI legge tutto.</p><div class="drop-zone" id="drop-pdf" ondragover="dragOver(event,'drop-pdf')" ondragleave="dragLeave('drop-pdf')" ondrop="dropFile(event,'pdf')"><input type="file" accept=".pdf" multiple onchange="handleFile(event,'pdf')"><div class="drop-icon">📄</div><div class="drop-text"><strong>Clicca o trascina</strong> il PDF delle bolle</div></div></div>
+    <div class="upload-card"><h3>✏️ Scarico manuale</h3><p>Inserisci direttamente codice, quantità e cliente.</p><div style="margin-top:12px"><div class="form-row"><div class="form-label">Codice / Nome articolo</div><input class="form-input" id="man-uscita-art" placeholder="es. PIATTI-23-BL" list="man-uscita-art-list"><datalist id="man-uscita-art-list"></datalist></div><div class="form-row"><div class="form-label">Cliente</div><input class="form-input" id="man-uscita-cliente" placeholder="Nome cliente" list="man-uscita-cli-list"><datalist id="man-uscita-cli-list"></datalist></div><div class="form-row-2"><div class="form-row"><div class="form-label">Quantità</div><input class="form-input" id="man-uscita-qty" type="number" min="1" placeholder="10"></div><div class="form-row" style="display:flex;align-items:flex-end"><button class="btn btn-danger" style="width:100%" onclick="addManUscita()">📤 Scarica</button></div></div></div></div>
+  </div>
+  <div class="ai-processing" id="ai-proc-uscita"><div class="ai-header"><div class="ai-dot"></div>AI in elaborazione bolle...</div><div class="ai-log" id="ai-log-uscita"></div></div>
+  <div class="confirm-panel" id="confirm-uscita"><div class="confirm-title">✓ Articoli rilevati — Conferma scarico</div><table class="confirm-table"><thead><tr><th>Articolo</th><th>Codice</th><th>Qtà da scaricare</th><th>Giacenza attuale</th></tr></thead><tbody id="confirm-tbody-uscita"></tbody></table><div class="confirm-actions"><button class="btn btn-secondary" onclick="cancelConfirm('uscita')">Annulla</button><button class="btn btn-danger" onclick="applyConfirm('uscita')">📤 Conferma scarico inventario</button></div></div>
+</div>
+
+<div class="view" id="view-movimenti"><div class="section-head"><div class="section-title">Storico movimenti</div></div><div class="mov-list" id="all-movimenti"><div class="empty-state"><div class="empty-icon">📋</div><p>Nessun movimento registrato.</p></div></div></div>
+
+<div class="view" id="view-report">
+  <div style="padding:20px 18px 0">
+    <div style="position:relative;margin-bottom:14px"><input id="report-search" type="text" placeholder="Codice o nome articolo…" style="width:100%;background:#2e2e2e;border:1.5px solid #252525;border-radius:14px;padding:15px 48px 15px 18px;color:#f0f0f0;font-family:Arial,sans-serif;font-size:15px;font-weight:400;box-sizing:border-box;outline:none" oninput="renderReportSuggestions()" onkeydown="if(event.key==='Enter'){selectReportArticle()}"><span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:17px;opacity:.3">🔍</span></div>
+    <div id="report-suggestions" style="display:none;background:#2e2e2e;border:1.5px solid #252525;border-radius:14px;overflow:hidden;margin-bottom:14px"></div>
+    <div id="report-filters" style="display:none;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center"><button class="report-filter-btn active" onclick="setReportFilter('3m',this)">3 mesi</button><button class="report-filter-btn" onclick="setReportFilter('6m',this)">6 mesi</button><button class="report-filter-btn" onclick="setReportFilter('12m',this)">12 mesi</button><button class="report-filter-btn" onclick="setReportFilter('custom',this)">Libero</button><button onclick="stampaReport()" style="margin-left:auto;background:transparent;border:2px solid rgba(255,255,255,.9);border-radius:20px;padding:8px 16px;color:#c8c8c8;font-family:var(--fm);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">🖨️ Stampa</button></div>
+    <div id="report-custom-range" style="display:none;gap:10px;margin-bottom:20px;align-items:center"><div style="display:flex;align-items:center;gap:10px;flex:1"><label style="color:#c8c8c8;font-size:13px;white-space:nowrap">Dal</label><input type="date" id="report-date-from" style="background:#2e2e2e;border:1.5px solid #252525;border-radius:10px;padding:10px 12px;color:#f0f0f0;font-size:14px;flex:1;outline:none" onchange="renderReport()"></div><div style="display:flex;align-items:center;gap:10px;flex:1"><label style="color:#c8c8c8;font-size:13px;white-space:nowrap">Al</label><input type="date" id="report-date-to" style="background:#2e2e2e;border:1.5px solid #252525;border-radius:10px;padding:10px 12px;color:#f0f0f0;font-size:14px;flex:1;outline:none" onchange="renderReport()"></div></div>
+  </div>
+  <div id="report-content" style="padding:0 18px 110px"><div style="text-align:center;padding:100px 20px;color:#333;font-size:14px;line-height:2">Cerca un articolo<br>per vedere il report</div></div>
+</div>
+
+<div class="view" id="view-note">
+  <div class="section-head" style="margin-bottom:16px"><div class="section-title">📝 Note & Promemoria</div></div>
+  <div class="note-compose"><h4>Nuova nota</h4><textarea class="note-textarea" id="nota-text" placeholder="Scrivi qui la tua nota..."></textarea>
+    <div style="display:flex;gap:6px;margin-top:10px"><button class="prio-btn selected" data-prio="bassa" onclick="selectPrio(this)" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:2px solid #3ecf6e;background:rgba(62,207,110,.12);color:#f0f0f0;font-size:13px;cursor:pointer;font-family:var(--fm);font-weight:600"><span style="width:12px;height:12px;border-radius:50%;background:#3ecf6e;display:inline-block"></span>Bassa</button><button class="prio-btn" data-prio="media" onclick="selectPrio(this)" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:2px solid rgba(255,255,255,.9);background:#1a1a1a;color:#c0c0c0;font-size:13px;cursor:pointer;font-family:var(--fm);font-weight:600"><span style="width:12px;height:12px;border-radius:50%;background:#f5c518;display:inline-block"></span>Media</button><button class="prio-btn" data-prio="alta" onclick="selectPrio(this)" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:2px solid rgba(255,255,255,.9);background:#1a1a1a;color:#c0c0c0;font-size:13px;cursor:pointer;font-family:var(--fm);font-weight:600"><span style="width:12px;height:12px;border-radius:50%;background:#f03e3e;display:inline-block"></span>Alta</button></div>
+    <div class="note-compose-footer" style="margin-top:10px"><div class="note-quick-times"><button class="note-quick-btn" onclick="setQuickTime(this,'oggi-ora')">⏰ Oggi — scegli ora</button><button class="note-quick-btn" onclick="setQuickTime(this,'domani')">🌅 Domani alle 8:00</button><button class="note-quick-btn" onclick="setQuickTime(this,'custom')">✏️ Scegli data e ora</button></div><input type="datetime-local" id="nota-reminder" style="display:none">
+    <div style="margin-top:10px"><div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#c0c0c0;margin-bottom:6px">Collega a cliente</div><input type="text" id="nota-cliente" placeholder="Nome cliente (opzionale)..." list="nota-clienti-list" style="background:#272727;border:2px solid rgba(255,255,255,.9);border-radius:10px;padding:10px 14px;color:#fff;font-size:13px;width:100%;font-family:var(--fm)"><datalist id="nota-clienti-list"></datalist></div>
+    <button class="btn btn-primary" onclick="saveNota()" style="margin-left:auto;margin-top:10px">Salva nota</button></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><input type="text" id="note-search" placeholder="🔍 Cerca nelle note..." oninput="renderNote()" style="flex:1;min-width:180px;padding:8px 12px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;color:var(--tx);font-family:var(--fm);font-size:12px;outline:none"><div class="note-tabs" style="margin-bottom:0"><button class="note-tab active" id="ntab-tutte" onclick="switchNoteTab('tutte')">📋 Tutte</button><button class="note-tab" id="ntab-completate" onclick="switchNoteTab('completate')">✅ Completate</button></div></div>
+  <div class="note-list" id="note-list"></div>
+</div>
+
+<div class="view" id="view-proforma">
+  <div class="section-head" style="margin-bottom:16px"><div class="section-title">📋 Proforma D.D.T.</div></div>
+  <div style="background:var(--s1);border:1px solid var(--b2);border-radius:12px;padding:16px;margin-bottom:16px"><div class="form-label" style="margin-bottom:8px">Cliente</div><input class="form-input" id="proforma-cliente" placeholder="es. Bar Rossi" list="proforma-clienti-list" style="margin-bottom:12px"><datalist id="proforma-clienti-list"></datalist><div class="form-label" style="margin-bottom:8px">Messaggio ordine</div><textarea id="proforma-input" placeholder="Incolla qui il messaggio del cliente..." style="width:100%;min-height:110px;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:12px;color:var(--tx);font-family:var(--fm);font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:12px"></textarea><button id="proforma-btn" onclick="elaboraProforma()" class="btn btn-primary" style="width:100%">✨ Genera Proforma</button></div>
+  <div id="proforma-result" style="display:none"><div id="proforma-banner"></div><div style="background:var(--s1);border:1px solid var(--b2);border-radius:12px;overflow:hidden;margin-bottom:16px"><div style="padding:12px 16px;border-bottom:1px solid var(--b2);display:flex;justify-content:space-between;align-items:center"><div><div style="font-family:var(--fh);font-size:14px;font-weight:700" id="proforma-cliente-label"></div><div style="font-size:12px;color:var(--tx2);margin-top:2px" id="proforma-data-label"></div></div><div style="font-size:12px;color:var(--warn)">⚠️ Documento non fiscale</div></div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--b2)"><th style="padding:10px 12px;font-size:12px;text-align:left;color:var(--tx2)">Codice</th><th style="padding:10px 12px;font-size:12px;text-align:left;color:var(--tx2)">Articolo</th><th style="padding:10px 12px;font-size:12px;text-align:center;color:var(--tx2)">Qtà</th><th style="padding:10px 12px;font-size:12px;text-align:left;color:var(--tx2)">Disp.</th></tr></thead><tbody id="proforma-tbody"></tbody></table></div></div><input type="hidden" id="proforma-items-json"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary" style="font-size:12px;flex:1" onclick="stampaProforma()">🖨️ Stampa</button><button class="btn btn-secondary" style="font-size:12px;flex:1" onclick="emailProforma()">✉️ Email</button><button class="btn btn-primary" style="font-size:12px;flex:1" onclick="applicaUscitaProforma()">📤 Scarica merce</button></div></div>
+</div>
+
+<div class="view" id="view-ordini">
+  <div class="section-head" style="margin-bottom:16px"><div class="section-title">🛒 Ordini Fornitori</div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="aggiornaOrdiniAuto()" title="Ricalcola articoli sotto soglia pre-ordine">🔄 Aggiorna</button></div></div>
+  <div style="display:flex;gap:0;margin-bottom:20px;background:#313131;border:2px solid rgba(255,255,255,.9);border-radius:14px;overflow:hidden"><button id="otab-attivi" onclick="switchOrdiniTab('attivi')" style="flex:1;padding:12px;background:#90cdf4;border:none;color:#111;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">📋 Attivi</button><button id="otab-storico" onclick="switchOrdiniTab('storico')" style="flex:1;padding:12px;background:transparent;border:none;color:#c0c0c0;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">🕘 Storico</button><button id="otab-stralci" onclick="switchOrdiniTab('stralci')" style="flex:1;padding:12px;background:transparent;border:none;color:#c0c0c0;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">⏳ Stralci <span id="stralci-badge" style="display:none;background:#f5c518;color:#111;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-left:2px">0</span></button></div>
+  <div id="ordini-attivi-container"><div style="font-size:12px;color:var(--tx2);margin-bottom:18px;padding:10px 14px;background:var(--s1);border-radius:8px;border:1px solid var(--b2)">💡 Gli articoli vengono aggiunti automaticamente quando scendono sotto la <strong>soglia pre-ordine</strong>.</div><div id="ordini-panels"></div></div>
+  <div id="ordini-storico-container" style="display:none"><div id="ordini-storico-list"></div></div>
+  <div id="ordini-stralci-container" style="display:none"><div style="font-size:12px;color:#c0c0c0;margin-bottom:14px;padding:10px 14px;background:rgba(245,197,24,.08);border:1.5px solid rgba(245,197,24,.3);border-radius:10px">⏳ Merce ordinata non ancora ricevuta</div><div id="stralci-list"></div></div>
+</div>
+
+<div class="view" id="view-parcoauto">
+  <div class="section-head" style="margin-bottom:16px"><div class="section-title">🚛 Parco Auto</div></div>
+  <div style="background:var(--s1);border:1px solid var(--b2);border-radius:12px;padding:16px;margin-bottom:16px">
+    <div style="font-family:var(--fh);font-size:13px;font-weight:600;margin-bottom:12px;color:var(--tx)">Aggiungi veicolo</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input class="form-input" id="new-veicolo-targa" placeholder="Targa es. AB123CD" style="flex:1;min-width:120px;margin-bottom:0">
+      <input class="form-input" id="new-veicolo-modello" placeholder="Modello es. Fiat Ducato" style="flex:1;min-width:120px;margin-bottom:0">
+      <input class="form-input" id="new-veicolo-anno" placeholder="Anno" style="width:80px;margin-bottom:0">
+      <button class="btn btn-primary" onclick="aggiungiVeicolo()">+ Aggiungi</button>
+    </div>
+  </div>
+  <div id="parco-auto-list"></div>
+</div>
+
+</main>
+
+<div class="modal-overlay" id="consegna-overlay" onclick="chiudiConsegna()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:16px">
+  <div onclick="event.stopPropagation()" style="background:var(--s1);border:1px solid var(--b2);border-radius:16px;padding:24px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><div style="font-family:var(--fh);font-weight:700;font-size:16px">📬 Registra consegna</div><button onclick="chiudiConsegna()" style="background:transparent;border:none;color:var(--tx2);font-size:20px;cursor:pointer">✕</button></div><div id="consegna-fornitore-label" style="font-size:12px;color:var(--tx2);margin-bottom:16px"></div><div id="consegna-items"></div><div style="display:flex;gap:10px;margin-top:20px"><button onclick="chiudiConsegna()" class="btn btn-secondary" style="flex:1">Annulla</button><button onclick="confermaConsegna()" class="btn btn-primary" style="flex:1;background:var(--green);border-color:var(--green);color:#0a0c0a">✅ Conferma consegna</button></div></div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal"><h3 id="modal-title">Nuovo articolo</h3><div class="form-row"><div class="form-label">Codice interno</div><input class="form-input" id="new-code" placeholder="es. PIATTI-23-BL"></div><div class="form-row"><div class="form-label">Codice fornitore</div><input class="form-input" id="new-code-forn" placeholder="es. FAB-001 (opzionale)"></div><div class="form-row"><div class="form-label">Descrizione</div><input class="form-input" id="new-desc" placeholder="es. Piatti monouso bianchi 23cm"></div><div class="form-row-2"><div class="form-row"><div class="form-label">Categoria</div><select class="form-input" id="new-cat"><option>Food Packaging</option><option>Monouso</option><option>Cleaning Solution</option><option>Tovagliato</option><option>Altro</option></select></div><div class="form-row"><div class="form-label">Fornitore</div><input class="form-input" id="new-fornitore" placeholder="es. Fabbri" list="fornitori-list"><datalist id="fornitori-list"></datalist></div></div><div class="form-row" id="cliente-row"><div class="form-label">Cliente personalizzato</div><input class="form-input" id="new-cliente" placeholder="es. Ristorante Da Mario" list="clienti-list"><datalist id="clienti-list"></datalist></div><div class="form-row-2"><div class="form-row"><div class="form-label">Giacenza iniziale</div><input class="form-input" id="new-qty" type="number" min="0" placeholder="0"></div><div class="form-row"><div class="form-label">Unità di misura</div><select class="form-input" id="new-udm" onchange="aggiornaLabelPezzi()"><option value="cartoni">Cartoni</option><option value="coppie">Coppie</option><option value="confezioni">Confezioni</option><option value="pezzi">Pezzi</option></select></div><div class="form-row"><div class="form-label">Soglia minima alert</div><input class="form-input" id="new-min" type="number" min="1" placeholder="5"></div></div><div class="form-row" id="pezzi-cartone-row"><div class="form-label" id="pezzi-cartone-label">Pezzi per cartone (opzionale)</div><input class="form-input" id="new-pezzi-cartone" type="number" min="0" placeholder="es. 12 — lascia vuoto se non serve"></div><div class="form-row"><div class="form-label">Soglia pre-ordine</div><input class="form-input" id="new-preordine" type="number" min="1" placeholder="es. 12"></div><div class="form-row"><div class="form-label">Corsia / Posizione magazzino</div><div style="display:flex;gap:8px;align-items:center"><input class="form-input" id="new-corsia" placeholder="es. A3, Corsia 2" style="flex:1"><button type="button" onclick="triggerCorsiaPhoto()" style="padding:8px 12px;background:var(--s3);border:1px solid var(--b2);border-radius:8px;color:#f0f0f0;cursor:pointer;font-size:16px;flex-shrink:0">📷</button></div><input type="file" id="corsia-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handleCorsiaPhoto(this)"><div id="corsia-photo-preview" style="margin-top:8px;display:none"><div style="position:relative;display:inline-block"><img id="corsia-photo-img" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--b2)"><button onclick="removeCorsiaPhoto()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);border:none;color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">✕</button></div></div></div><div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal()">Annulla</button><button class="btn btn-primary" onclick="saveNewArticle()">Salva articolo</button></div></div>
+</div>
+
+<div class="modal-overlay" id="cliente-modal-overlay"><div class="modal"><h3>Nuovo cliente personalizzato</h3><div class="form-row"><div class="form-label">Nome cliente / Ragione sociale</div><input class="form-input" id="new-cliente-name" placeholder="es. Ristorante Da Mario"></div><div class="modal-actions"><button class="btn btn-secondary" onclick="closeClienteModal()">Annulla</button><button class="btn btn-primary" onclick="saveNewCliente()">Aggiungi cliente</button></div></div></div>
+
+<div class="toast" id="toast"><span class="toast-icon">✓</span><span id="toast-msg"></span></div>
+
+<div class="mobile-nav" id="mobile-nav"><div class="mobile-nav-inner">
+  <button class="mobile-nav-btn active" id="mnav-dashboard" onclick="showView('dashboard')"><span class="mnav-icon">📊</span><span class="mnav-label">Dashboard</span></button>
+  <button class="mobile-nav-btn" id="mnav-inventario" onclick="showView('inventario')"><span class="mnav-icon">📦</span><span class="mnav-label">Inventario</span></button>
+  <button class="mobile-nav-btn" id="mnav-entrata" onclick="showView('entrata')"><span class="mnav-icon">📥</span><span class="mnav-label">Entrata</span></button>
+  <button class="mnav-gino-btn" id="voice-btn" onclick="toggleVoice()" title="Assistente GINO">🎤<span style="font-size:10px;display:block;margin-top:2px;font-family:var(--fm)">GINO</span></button>
+  <button class="mobile-nav-btn" id="mnav-uscita" onclick="showView('uscita')"><span class="mnav-icon">📤</span><span class="mnav-label">Uscita</span></button>
+  <button class="mobile-nav-btn" id="mnav-proforma" onclick="showView('proforma')"><span class="mnav-icon">📋</span><span class="mnav-label">Proforma</span></button>
+  <button class="mobile-nav-btn" id="mnav-ordini" onclick="showView('ordini')"><span class="mnav-icon">🛒</span><span class="mnav-label">Ordini</span></button>
+  <button class="mobile-nav-btn" id="mnav-note" onclick="showView('note')"><span class="mnav-icon">📝</span><span class="mnav-label">Note</span></button>
+  <button class="mobile-nav-btn" id="mnav-parcoauto" onclick="showView('parcoauto')"><span class="mnav-icon">🚛</span><span class="mnav-label">Furgoni</span></button>
+  <button class="mobile-nav-btn" onclick="openSettings()" style="color:#c8c8c8"><span class="mnav-icon">⚙️</span><span class="mnav-label">API</span></button>
+</div></div>
+
+<div id="gino-mini" style="display:none;position:fixed;top:60px;right:12px;background:#2e2e2e;border:2px solid rgba(144,205,244,.4);border-radius:14px;z-index:500;padding:8px 14px;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:pointer" onclick="openGinoFull()"><span style="font-size:16px">🎤</span><span style="font-family:var(--fm);font-size:12px;color:var(--accent)">GINO attivo</span><div class="ai-dot" style="width:6px;height:6px"></div></div>
+
+<div class="gino-panel" id="gino-panel"><div class="gino-header"><span style="font-family:var(--fh);font-size:18px;color:var(--accent)">🎤 GINO</span><button onclick="closeGino()" style="background:none;border:none;color:var(--tx2);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button></div><div class="gino-chat" id="gino-chat"></div><div id="gino-listening-label" style="display:none;text-align:center;font-size:12px;color:var(--accent);font-family:var(--fm);padding:4px 0;animation:pulse 1s infinite">● In ascolto...</div><div class="gino-input-row"><button class="gino-mic" id="gino-mic-btn" onclick="toggleGinoMic()" style="background:#1a1a1a;border:2px solid rgba(255,255,255,.9);border-radius:10px;padding:10px 14px;font-size:18px;cursor:pointer;flex-shrink:0;transition:all .2s">🎤</button><input class="gino-input" id="gino-input" placeholder="Scrivi o parla..." onkeydown="ginoKeydown(event)"><button onclick="startGinoContinuous()" style="background:#1a1a1a;border:2px solid rgba(255,255,255,.9);border-radius:10px;padding:10px 12px;font-size:15px;cursor:pointer;flex-shrink:0;color:#90cdf4" title="Ascolto continuo">∞</button><button class="gino-send" onclick="sendGinoMsg()">➤</button></div></div>
+
+<div id="settings-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:40px 20px 40px">
+<div style="background:#313131;border:2px solid rgba(255,255,255,.9);border-radius:20px;padding:28px 24px;width:90%;max-width:400px;margin:0 auto">
+  <div style="font-family:var(--fh);font-size:20px;color:#f0f0f0;margin-bottom:6px">⚙️ Impostazioni</div>
+  <div style="font-family:var(--fm);font-size:13px;color:#c8c8c8;margin-bottom:20px">Chiave Groq — gratuita e salvata solo su questo telefono</div>
+  <div style="font-family:var(--fm);font-size:12px;color:#c8c8c8;margin-bottom:6px">Groq API Key</div>
+  <input id="settings-apikey" type="password" placeholder="gsk_..." style="width:100%;background:#2e2e2e;border:1px solid #333;border-radius:10px;padding:12px;color:#f0f0f0;font-family:var(--fm);font-size:13px;box-sizing:border-box;margin-bottom:12px">
+  <div style="display:flex;gap:10px;margin-bottom:20px">
+    <button onclick="closeSettings()" style="flex:1;background:transparent;border:1px solid #333;border-radius:10px;padding:12px;color:#c0c0c0;font-family:var(--fm);font-size:14px;cursor:pointer">Annulla</button>
+    <button onclick="saveSettings()" style="flex:1;background:var(--accent);border:none;border-radius:10px;padding:12px;color:#000;font-family:var(--fm);font-size:14px;font-weight:700;cursor:pointer">Salva</button>
+  </div>
+  <div style="border-top:1.5px solid rgba(255,255,255,.15);padding-top:18px;margin-top:4px">
+    <div style="font-family:var(--fh);font-size:14px;color:#f0f0f0;margin-bottom:12px">💾 Spazio dati</div>
+    <div id="storage-info" style="margin-bottom:14px"></div>
+  </div>
+  <div style="border-top:1.5px solid rgba(255,255,255,.15);padding-top:18px;margin-top:4px">
+    <div style="font-family:var(--fh);font-size:14px;color:#f0f0f0;margin-bottom:12px">📦 Backup</div>
+    <div style="display:flex;gap:10px;margin-bottom:8px">
+      <button onclick="exportBackup()" style="flex:1;padding:12px;background:rgba(62,207,110,.1);border:1.5px solid rgba(62,207,110,.4);border-radius:10px;color:#3ecf6e;font-family:var(--fm);font-size:13px;font-weight:700;cursor:pointer">📤 Esporta backup</button>
+      <button onclick="importBackup()" style="flex:1;padding:12px;background:rgba(144,205,244,.08);border:1.5px solid rgba(144,205,244,.3);border-radius:10px;color:#90cdf4;font-family:var(--fm);font-size:13px;font-weight:700;cursor:pointer">📥 Importa backup</button>
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:4px">Il backup include TUTTO: inventario, movimenti, report, ordini, note.</div>
+  </div>
+  <div style="border-top:1.5px solid rgba(255,255,255,.15);padding-top:18px;margin-top:14px">
+    <div style="font-family:var(--fh);font-size:14px;color:#f0f0f0;margin-bottom:12px">🧹 Gestione spazio</div>
+    <button onclick="svuotaLoghi()" style="width:100%;padding:12px;background:rgba(245,197,24,.08);border:1.5px solid rgba(245,197,24,.3);border-radius:10px;color:#f5c518;font-family:var(--fm);font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px">🖼️ Svuota loghi e foto — libera spazio</button>
+    <button onclick="resetCompleto()" style="width:100%;padding:12px;background:rgba(240,62,62,.08);border:1.5px solid rgba(240,62,62,.3);border-radius:10px;color:#f03e3e;font-family:var(--fm);font-size:13px;font-weight:600;cursor:pointer">⚠️ Reset completo — cancella tutto</button>
+  </div>
+</div>
+</div>
+
+<div id="art-ctx-menu" style="display:none;position:fixed;z-index:999;background:#383838;border:2px solid rgba(255,255,255,.9);border-radius:14px;padding:6px;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.6)"><button onclick="artMenuModifica()" style="width:100%;background:none;border:none;color:#f0f0f0;font-family:var(--fm);font-size:15px;padding:12px 16px;text-align:left;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px">✏️ Modifica</button><div style="height:1px;background:#333;margin:2px 0"></div><button onclick="artMenuElimina()" style="width:100%;background:none;border:none;color:#f03e3e;font-family:var(--fm);font-size:15px;padding:12px 16px;text-align:left;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px">🗑️ Elimina</button></div>
+
+<script src="app.js"></script>
+</body>
+</html>
