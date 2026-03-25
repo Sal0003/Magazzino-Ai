@@ -918,6 +918,16 @@ function toggleVoice(){
     benvenuto+='Dimmi cosa fare.';
     appendGinoMsg('assistant',benvenuto);
     ginoParla(benvenuto);
+    // Debug: mostra voci disponibili
+    setTimeout(function(){
+      var voci=window.speechSynthesis.getVoices();
+      var itVoci=voci.filter(function(v){return v.lang.startsWith('it');});
+      if(itVoci.length>0){
+        appendGinoMsg('assistant','[Voci IT: '+itVoci.map(function(v){return v.name;}).join(', ')+']');
+      }else{
+        appendGinoMsg('assistant','[Nessuna voce italiana trovata - '+voci.length+' voci totali]');
+      }
+    },1500);
     var urlParams=new URLSearchParams(window.location.search);
     if(urlParams.get('listen')==='1'){
       setTimeout(function(){ginoContinuous=true;startGinoMic();},2500);
