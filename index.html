@@ -226,5 +226,28 @@
 <div id="art-ctx-menu" style="display:none;position:fixed;z-index:999;background:#383838;border:2px solid rgba(255,255,255,.9);border-radius:14px;padding:6px;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.6)"><button onclick="artMenuModifica()" style="width:100%;background:none;border:none;color:#f0f0f0;font-family:var(--fm);font-size:15px;padding:12px 16px;text-align:left;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px">✏️ Modifica</button><div style="height:1px;background:#333;margin:2px 0"></div><button onclick="artMenuElimina()" style="width:100%;background:none;border:none;color:#f03e3e;font-family:var(--fm);font-size:15px;padding:12px 16px;text-align:left;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px">🗑️ Elimina</button></div>
 
 <script src="app.js"></script>
+<script>
+// === FIX v1 — correzioni integrate ===
+// FIX 1: suggerisciEntrata — compila solo l'altro campo, non quello attivo
+suggerisciEntrata=function(){
+  var codeEl=document.getElementById('man-art'),descEl=document.getElementById('man-art-desc');
+  if(!codeEl||!descEl)return;var a=document.activeElement;
+  if(a===codeEl){var v=codeEl.value.trim();if(v.length>=2){var art=cercaArticolo(v);if(art)descEl.value=art.desc;}}
+  else if(a===descEl){var v=descEl.value.trim();if(v.length>=2){var art=cercaArticolo(v);if(art)codeEl.value=art.code;}}
+};
+// FIX 2: suggerisciUscita — stessa logica
+suggerisciUscita=function(){
+  var codeEl=document.getElementById('man-uscita-art'),descEl=document.getElementById('man-uscita-desc');
+  if(!codeEl||!descEl)return;var a=document.activeElement;
+  if(a===codeEl){var v=codeEl.value.trim();if(v.length>=2){var art=cercaArticolo(v);if(art)descEl.value=art.desc;}}
+  else if(a===descEl){var v=descEl.value.trim();if(v.length>=2){var art=cercaArticolo(v);if(art)codeEl.value=art.code;}}
+};
+// FIX 3: saveNewArticle — auto-aggiunta cliente a clientiPersonalizzati
+var _origSave=saveNewArticle;
+saveNewArticle=function(){var c=document.getElementById('new-cliente');if(c){var n=c.value.trim();if(n&&clientiPersonalizzati.indexOf(n)===-1)clientiPersonalizzati.push(n);}_origSave();};
+// FIX 4: aggiornaLabelPezzi — gestione kg (nasconde pezzi/sfusi)
+var _origLabel=aggiornaLabelPezzi;
+aggiornaLabelPezzi=function(){var u=document.getElementById('new-udm');if(u&&u.value==='kg'){var r=document.getElementById('pezzi-cartone-row'),s=document.getElementById('pezzi-sfusi-row');if(r)r.style.display='none';if(s)s.style.display='none';return;}_origLabel();};
+</script>
 </body>
 </html>
