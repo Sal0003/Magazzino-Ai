@@ -248,6 +248,8 @@ saveNewArticle=function(){var c=document.getElementById('new-cliente');if(c){var
 // FIX 4: aggiornaLabelPezzi — gestione kg (nasconde pezzi/sfusi)
 var _origLabel=aggiornaLabelPezzi;
 aggiornaLabelPezzi=function(){var u=document.getElementById('new-udm');if(u&&u.value==='kg'){var r=document.getElementById('pezzi-cartone-row'),s=document.getElementById('pezzi-sfusi-row');if(r)r.style.display='none';if(s)s.style.display='none';return;}_origLabel();};
+// FIX 5: sync clienti — aggiunge alla lista i clienti presenti sugli articoli ma mancanti
+(function(){var changed=false;inventario.forEach(function(a){if(a.cliente&&clientiPersonalizzati.indexOf(a.cliente)===-1){clientiPersonalizzati.push(a.cliente);changed=true;}});if(changed){saveData();try{renderClienti();}catch(e){}}})();
 </script>
 </body>
 </html>
