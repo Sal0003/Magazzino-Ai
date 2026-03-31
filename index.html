@@ -245,11 +245,82 @@ suggerisciUscita=function(){
 // FIX 3: saveNewArticle — auto-aggiunta cliente a clientiPersonalizzati
 var _origSave=saveNewArticle;
 saveNewArticle=function(){var c=document.getElementById('new-cliente');if(c){var n=c.value.trim();if(n&&clientiPersonalizzati.indexOf(n)===-1)clientiPersonalizzati.push(n);}_origSave();};
-// FIX 4: aggiornaLabelPezzi — gestione kg (nasconde pezzi/sfusi)
-var _origLabel=aggiornaLabelPezzi;
-aggiornaLabelPezzi=function(){var u=document.getElementById('new-udm');if(u&&u.value==='kg'){var r=document.getElementById('pezzi-cartone-row'),s=document.getElementById('pezzi-sfusi-row');if(r)r.style.display='none';if(s)s.style.display='none';return;}_origLabel();};
 // FIX 5: sync clienti — aggiunge alla lista i clienti presenti sugli articoli ma mancanti
 (function(){var changed=false;inventario.forEach(function(a){if(a.cliente&&clientiPersonalizzati.indexOf(a.cliente)===-1){clientiPersonalizzati.push(a.cliente);changed=true;}});if(changed){saveData();try{renderClienti();}catch(e){}}})();
+// === PATCH v13 ===
+// P1: aggiornaLabelPezzi — kg mostra "Pezzi per chilo" invece di nascondere
+aggiornaLabelPezzi=function(){var udm=document.getElementById('new-udm')?.value||'cartoni';var row=document.getElementById('pezzi-cartone-row');var label=document.getElementById('pezzi-cartone-label');var sfusiRow=document.getElementById('pezzi-sfusi-row');if(!row||!label)return;if(udm==='pezzi'){row.style.display='none';if(sfusiRow)sfusiRow.style.display='none';return;}row.style.display='block';var singolare={cartoni:'cartone',coppie:'coppia',confezioni:'confezione',kg:'chilo'};label.textContent='Pezzi per '+(singolare[udm]||udm)+' (opzionale)';var ppc=parseInt(document.getElementById('new-pezzi-cartone')?.value)||0;if(sfusiRow)sfusiRow.style.display=ppc>0?'block':'none';};
+// P2: stampaFornitore — stampa elenco articoli
+function stampaFornitore(forn){
+  var articoli=inventario.filter(function(a){return a.fornitore===forn;});
+  if(articoli.length===0){showToast('Nessun articolo per '+forn);return;}
+  var oggi=new Date().toLocaleDateString('it-IT');
+  var righe=articoli.map(function(a){
+    return '<tr><td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:13px">'+escapeHtml(a.code)+'</td><td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:13px">'+escapeHtml(a.desc)+'</td><td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;font-weight:bold">'+a.qty+'</td><td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:12px">'+(a.udm||'cartoni')+'</td><td style="padding:10px 12px;border-bottom:1px solid #eee;font-size:12px;color:'+(a.qty<=a.min?'red':'green')+'">'+(a.qty<=a.min?'Basso':'OK')+'</td></tr>';
+  }).join('');
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Articoli '+escapeHtml(forn)+'</title><style>body{font-family:Arial,sans-serif;margin:40px;color:#222}table{width:100%;border-collapse:collapse}th{background:#f5f5f5;padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;border-bottom:2px solid #ddd}@media print{body{margin:20px}}</style></head><body><h1>'+escapeHtml(forn)+'</h1><div style="color:#666;font-size:13px;margin-bottom:30px">Elenco articoli \u2014 '+oggi+' \u2014 '+articoli.length+' articoli</div><table><thead><tr><th>Codice</th><th>Articolo</th><th>Giacenza</th><th>UdM</th><th>Stato</th></tr></thead><tbody>'+righe+'</tbody></table></body></html>';
+  var win=window.open('','_blank');
+  if(win){win.document.write(html);win.document.close();setTimeout(function(){var s=win.document.createElement('style');s.textContent='.close-print{position:fixed;top:10px;right:10px;width:40px;height:40px;border-radius:50%;background:#333;color:#fff;border:none;font-size:22px;cursor:pointer;z-index:9999;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}@media print{.close-print{display:none!important}}';win.document.head.appendChild(s);var b=win.document.createElement('button');b.className='close-print';b.textContent='\u2715';b.onclick=function(){win.close();};win.document.body.prepend(b);win.print();},300);}
+}
+// P3: eliminaFornitore — elimina fornitore e slega articoli
+function eliminaFornitore(forn){
+  var articoli=inventario.filter(function(a){return a.fornitore===forn;});
+  if(!confirm('Eliminare il fornitore "'+forn+'"?\n\n'+articoli.length+' articoli verranno slegati (non eliminati).'))return;
+  fornitori=fornitori.filter(function(f){return f.nome!==forn;});
+  inventario.forEach(function(a){if(a.fornitore===forn)a.fornitore='';});
+  if(ordiniFornitore[forn])delete ordiniFornitore[forn];
+  saveData();renderFornitori();renderInventario();updateStats();popolaDatalistUscita();
+  showToast('Fornitore '+forn+' eliminato');
+}
+// P4: eliminaCliente — elimina cliente e slega articoli
+function eliminaCliente(nome){
+  var articoli=inventario.filter(function(a){return a.cliente===nome;});
+  if(!confirm('Eliminare il cliente "'+nome+'"?\n\n'+articoli.length+' articoli personalizzati verranno slegati (non eliminati).'))return;
+  clientiPersonalizzati=clientiPersonalizzati.filter(function(c){return c!==nome;});
+  clientiProfili=clientiProfili.filter(function(c){return c.nome!==nome;});
+  inventario.forEach(function(a){if(a.cliente===nome)a.cliente='';});
+  saveData();renderClientHome();renderClienti();popolaDatalistUscita();
+  showToast('Cliente '+nome+' eliminato');
+}
+// P5: renderFornitori — override per aggiungere stampa e cestino nei chip
+var _patchOrigRenderFornitori=renderFornitori;
+renderFornitori=function(){
+  var container=document.getElementById('fornitori-panels');var allFornitori=[...new Set(inventario.map(function(a){return a.fornitore}).filter(Boolean))];var colors=['var(--accent)','var(--blue)','var(--green)','var(--warn)','#c084fc','#fb923c'];
+  container.innerHTML=allFornitori.map(function(forn,fi){var articoli=inventario.filter(function(a){return a.fornitore===forn}).sort(function(x,y){var cx=(x.cat||'').toLowerCase(),cy=(y.cat||'').toLowerCase();if(cx!==cy)return cx.localeCompare(cy);return(x.desc||'').toLowerCase().localeCompare((y.desc||'').toLowerCase());});var totQty=articoli.reduce(function(s,a){return s+a.qty},0);var critici=articoli.filter(function(a){return a.qty<=a.min}).length;var color=colors[fi%colors.length];
+  return '<div class="group-panel" id="gp-forn-'+fi+'"><div class="group-panel-header" onclick="togglePanel(\'forn-'+fi+'\')"><div class="group-panel-title">'+gpAvatarHtml(forn,color)+' '+forn+'</div><div class="group-panel-chips"><span class="gp-chip">'+articoli.length+' art.</span><span class="gp-chip">'+totQty+' ct.</span>'+(critici>0?'<span class="gp-chip gp-chip-danger" onclick="scrollToCritici(event,\'forn-'+fi+'\')">⚠ '+critici+' in alert</span>':'<span class="gp-chip gp-chip-ok">✓ OK</span>')+'<span class="gp-chip gp-chip-settings" onclick="event.stopPropagation();stampaFornitore(\''+forn+'\')" title="Stampa elenco">🖨️</span><span class="gp-chip gp-chip-settings" onclick="event.stopPropagation();eliminaFornitore(\''+forn+'\')" title="Elimina fornitore" style="color:var(--danger)!important">🗑️</span><span class="gp-chip gp-chip-settings" onclick="event.stopPropagation();openFornModal(\''+forn+'\',\''+color+'\')">⚙</span></div><span class="gp-chevron">›</span></div><div class="group-panel-body open" id="forn-'+fi+'">'+articoli.map(function(a,ai){return artCardCompact(a,'forn-'+fi+'-art-'+ai)}).join('')+'</div></div>';}).join('')||'<div class="empty-state"><div class="empty-icon">🏭</div><p>Nessun fornitore ancora.</p></div>';
+};
+// P6: renderClientHome — override per aggiungere cestino
+var _patchOrigRenderClientHome=renderClientHome;
+renderClientHome=function(){
+  var container=document.getElementById('clienti-home-list');if(!container)return;
+  var nomiSet=new Set();
+  clientiPersonalizzati.forEach(function(c){nomiSet.add(c);});
+  movimenti.concat(archivioMovimenti).forEach(function(m){if(m.cliente)nomiSet.add(m.cliente);});
+  inventario.forEach(function(a){if(a.cliente)nomiSet.add(a.cliente);});
+  var nomi=[...nomiSet].sort();
+  if(nomi.length===0){container.innerHTML='<div class="empty-state"><div class="empty-icon">\u{1F464}</div><p>Nessun cliente registrato.<br>I clienti vengono creati automaticamente dallo scarico merce.</p></div>';return;}
+  var allMov=archivioMovimenti.length>0?archivioMovimenti:movimenti;
+  var colors=['#f472b6','#60a5fa','#34d399','#fbbf24','#a78bfa','#fb7185','#90cdf4','#3ecf6e'];
+  container.innerHTML=nomi.map(function(nome,i){
+    var movCli=allMov.filter(function(m){return m.type==='uscita'&&m.cliente&&m.cliente===nome;});
+    var totConsegne=movCli.length;
+    var totPz=movCli.reduce(function(s,m){return s+m.qty;},0);
+    var ultime3=movCli.sort(function(a,b){return new Date(b.ts)-new Date(a.ts);}).slice(0,3);
+    var color=colors[i%colors.length];
+    var profilo=getClienteProfilo(nome);
+    var initials=nome.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+    var avatarHtml=profilo.logo?'<span class="gp-avatar" style="width:42px;height:42px;background:transparent;border:1.5px solid var(--b2);padding:2px"><img src="'+profilo.logo+'" style="width:100%;height:100%;object-fit:contain;border-radius:8px"></span>':'<span class="gp-avatar" style="width:42px;height:42px;--av-color:'+color+'">'+initials+'</span>';
+    return '<div class="group-panel"><div class="group-panel-header" onclick="togglePanel(\'clih-'+i+'\')"><div style="display:flex;align-items:center;gap:12px;width:100%">'+avatarHtml+'<div style="flex:1;min-width:0"><div style="font-family:var(--fh);font-size:16px;font-weight:700;color:var(--tx)">'+escapeHtml(nome)+'</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">'+totConsegne+' consegne \u00b7 '+totPz+' pz totali</div></div><span class="gp-chevron">\u203A</span></div></div><div class="group-panel-body" id="clih-'+i+'"><div style="padding:16px">'+
+    (ultime3.length===0?'<div style="font-size:12px;color:var(--tx2);padding:8px 0">Nessuna consegna registrata</div>':
+    '<div style="font-family:var(--fh);font-size:12px;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Ultime consegne</div>'+
+    ultime3.map(function(m){
+      var d=new Date(m.ts);
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--s1);border-radius:8px;margin-bottom:6px;border-left:3px solid var(--danger)"><div><div style="font-size:13px;color:var(--tx)">'+escapeHtml(m.desc)+'</div><div style="font-size:11px;color:var(--tx2);margin-top:2px">'+d.toLocaleDateString('it-IT')+' \u00b7 '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+'</div></div><div style="font-size:18px;font-weight:700;color:var(--danger)">-'+m.qty+'</div></div>';
+    }).join(''))+
+    '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-secondary" style="flex:1;font-size:12px" onclick="event.stopPropagation();selectReportArticleById(\'cli_'+nome+'\');showView(\'report\')">\u{1F4CA} Report</button><button class="btn btn-second" style="flex:1;font-size:12px" onclick="event.stopPropagation();openClienteModal(\''+nome+'\',\''+color+'\')">\u2699 Scheda</button><button class="btn btn-danger" style="font-size:12px" onclick="event.stopPropagation();eliminaCliente(\''+nome+'\')">\u{1F5D1}</button></div>'+
+    '</div></div></div>';
+  }).join('');
+};
 </script>
 </body>
 </html>
