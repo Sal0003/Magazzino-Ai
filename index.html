@@ -250,6 +250,181 @@ saveNewArticle=function(){var c=document.getElementById('new-cliente');if(c){var
 // === PATCH v13 ===
 // P1: aggiornaLabelPezzi — kg mostra "Pezzi per chilo" invece di nascondere
 aggiornaLabelPezzi=function(){var udm=document.getElementById('new-udm')?.value||'cartoni';var row=document.getElementById('pezzi-cartone-row');var label=document.getElementById('pezzi-cartone-label');var sfusiRow=document.getElementById('pezzi-sfusi-row');if(!row||!label)return;if(udm==='pezzi'){row.style.display='none';if(sfusiRow)sfusiRow.style.display='none';return;}row.style.display='block';var singolare={cartoni:'cartone',coppie:'coppia',confezioni:'confezione',kg:'chilo'};label.textContent='Pezzi per '+(singolare[udm]||udm)+' (opzionale)';var ppc=parseInt(document.getElementById('new-pezzi-cartone')?.value)||0;if(sfusiRow)sfusiRow.style.display=ppc>0?'block':'none';};
+// P-FOTO: Override processFile — risoluzione alta + prompt dettagliato bolle italiane
+processFile=async function(file,type){
+  var isUscita=type==='pdf'||type==='foto-uscita';
+  var procEl=document.getElementById('ai-proc-'+(isUscita?'uscita':'entrata'));
+  var logEl=document.getElementById('ai-log-'+(isUscita?'uscita':'entrata'));
+  procEl.classList.add('active');logEl.innerHTML='';
+  var addLog=function(msg,delay){setTimeout(function(){var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);},delay||0);};
+  addLog('File: '+file.name,0);
+  var ext=file.name.split('.').pop().toLowerCase();
+  if(['dng','raw','cr2','nef','arw','orf','rw2'].indexOf(ext)!==-1){addLog('\u274C Formato RAW non supportato.',400);setTimeout(function(){procEl.classList.remove('active');showToast('Formato RAW non supportato');},2000);return;}
+  var apiKey=localStorage.getItem('mag_apikey')||'';
+  if(!apiKey){addLog('\u26A0 Chiave API mancante!',400);procEl.classList.remove('active');return;}
+  var isImage=file.type.startsWith('image/');
+  if(!isImage){addLog('\u26A0 Per i PDF, usa la fotocamera \u2014 scatta una foto al documento.',400);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
+  try{
+    addLog('Comprimo immagine (alta qualit\u00E0)...',300);
+    var dataUrl=await compressForAPI(file,1280,0.7);
+    addLog('Foto pronta ('+Math.round(dataUrl.length/1024)+'KB), invio all\'AI...',600);
+    var prompt='Sei un sistema OCR PRECISO per bolle, fatture e documenti di trasporto italiani.\n\n'+
+'COMPITO: Leggi ATTENTAMENTE questa foto e estrai TUTTI i dati dalla tabella articoli.\n\n'+
+'ISTRUZIONI DETTAGLIATE:\n'+
+'1. FORNITORE/MITTENTE: Leggi il nome azienda dall\'intestazione del documento (chi emette la bolla)\n'+
+'2. DESTINATARIO/CLIENTE: Se presente, leggi il nome del destinatario della merce\n'+
+'3. Per OGNI RIGA della tabella articoli, estrai TUTTI questi campi:\n'+
+'   - colli: numero colli/cartoni (prima colonna numerica, es. 8, 10, 4)\n'+
+'   - formato: dimensione/misura se presente (es. "15x30", "10x20", "22x45")\n'+
+'   - desc: descrizione COMPLETA del prodotto. IMPORTANTE: leggi TUTTE le sotto-righe!\n'+
+'     Spesso la descrizione \u00E8 su pi\u00F9 righe e include:\n'+
+'     * Nome prodotto (es. "SACCHETTI SOFFIETTO KPSTAMPATI")\n'+
+'     * Nome cliente/ristorante tra virgolette (es. "SAN FILIPPO NERI", "PRESTIN")\n'+
+'     * Numero lotto (es. "Lotto: 13/26")\n'+
+'     INCLUDI TUTTO nella descrizione!\n'+
+'   - cliente_riga: se nella descrizione c\'e\' un nome ristorante/attivita\' tra virgolette, estrailo separatamente qui\n'+
+'   - udm: unita\' di misura (KG, PZ, NR, CT, PAIA...)\n'+
+'   - qtyPeso: quantita\'/peso nella colonna Quantita\' (es. 200.000 = 200 kg)\n'+
+'   - prezzoUnit: prezzo unitario se presente\n\n'+
+'REGOLE FONDAMENTALI:\n'+
+'- TRASCRIVI ESATTAMENTE quello che vedi sulla carta, NON inventare MAI\n'+
+'- Leggi OGNI sotto-riga della descrizione (nomi clienti, lotti, specifiche)\n'+
+'- Se non riesci a leggere un campo, scrivi "?"\n'+
+'- Numeri italiani: punto = migliaia, virgola = decimali (200.000 = 200000 | 1,950 = 1.95)\n'+
+'- Costruisci il codice da: tipo prodotto abbreviato + formato (es. "SACCH-SOFF-KP-15x30")\n\n'+
+'Rispondi SOLO con JSON valido:\n'+
+'{"fornitore":"NOME MITTENTE","destinatario":"NOME DESTINATARIO O VUOTO","numero_doc":"NUMERO BOLLA/FATTURA","data_doc":"DATA","articoli":[{"code":"CODICE","desc":"DESCRIZIONE COMPLETA MULTI-RIGA","cliente_riga":"NOME CLIENTE DA DESCRIZIONE O VUOTO","colli":NUMERO,"formato":"FORMATO","udm":"UDM","qtyPeso":NUMERO,"prezzoUnit":NUMERO_O_NULL}]}';
+    addLog('Modello: llama-4-scout (vision)',900);
+    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+      body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',max_tokens:2000,temperature:0.05,messages:[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:dataUrl}}]}]})
+    });
+    var data=await resp.json();
+    if(!resp.ok){var errMsg=data.error?.message||('Errore '+resp.status);addLog('\u274C '+errMsg,1200);showToast('Errore API: '+errMsg);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
+    var rawText=data.choices?.[0]?.message?.content||'';
+    addLog('Risposta AI ricevuta ('+rawText.length+' car.)',1200);
+    // Log primi 200 caratteri per debug
+    addLog(rawText.substring(0,200),1400);
+    var clean=rawText.replace(/```json|```/g,'').trim();
+    var jsonMatch=clean.match(/\{[\s\S]*\}/);
+    if(!jsonMatch){
+      var arrMatch=clean.match(/\[[\s\S]*\]/);
+      if(arrMatch){
+        try{var arr=JSON.parse(arrMatch[0]);if(arr.length>0){addLog('\u2705 Trovati '+arr.length+' articoli (array)',1600);setTimeout(function(){procEl.classList.remove('active');showConfirm(arr,isUscita?'uscita':'entrata');},2200);return;}}catch(e){}
+      }
+      addLog('\u274C Nessun JSON valido nella risposta',1600);
+      addLog('Risposta completa: '+rawText,1800);
+      setTimeout(function(){procEl.classList.remove('active');showToast('AI non ha restituito dati validi');},3000);return;
+    }
+    var parsed;
+    try{parsed=JSON.parse(jsonMatch[0]);}catch(pe){addLog('\u274C JSON parse error: '+pe.message,1600);addLog('Testo: '+jsonMatch[0].substring(0,200),1800);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
+    var items=parsed.articoli||parsed.items||[];
+    var fornitore=parsed.fornitore||'';
+    var destinatario=parsed.destinatario||'';
+    if(items.length===0){addLog('\u26A0 Nessun articolo estratto',1600);setTimeout(function(){procEl.classList.remove('active');showToast('Nessun articolo trovato');},2500);return;}
+    // Normalizza items per il sistema di conferma
+    items=items.map(function(it){
+      var q=parseInt(it.colli)||parseInt(it.qty)||0;
+      var desc=it.desc||it.descrizione||'';
+      // Aggiungi formato alla desc se mancante
+      if(it.formato&&it.formato!=='?'&&desc.indexOf(it.formato)===-1)desc=desc+' '+it.formato;
+      // Pulisci desc
+      desc=desc.replace(/\n/g,' ').replace(/\s+/g,' ').trim();
+      // Cliente dalla riga o dal destinatario
+      var clienteRiga=it.cliente_riga||'';
+      if(clienteRiga==='?')clienteRiga='';
+      return{
+        code:it.code||it.codice||'',
+        desc:desc,
+        qty:q,
+        fornitore:fornitore,
+        cliente:clienteRiga||destinatario||'',
+        udm:it.udm||'',
+        qtyPeso:it.qtyPeso||null,
+        formato:it.formato||''
+      };
+    }).filter(function(it){return it.desc&&it.desc!=='?'&&it.desc.length>2;});
+    var logMsg='\u2705 '+items.length+' articoli';
+    if(fornitore)logMsg+=' \u2014 Forn: '+fornitore;
+    if(destinatario)logMsg+=' \u2014 Dest: '+destinatario;
+    addLog(logMsg,1600);
+    // Log dettaglio articoli
+    items.forEach(function(it,i){addLog((i+1)+'. '+it.desc+' | '+it.qty+' colli | '+(it.cliente||'-'),1800+i*100);});
+    setTimeout(function(){procEl.classList.remove('active');if(items.length>0)showConfirm(items,isUscita?'uscita':'entrata');else showToast('Nessun articolo valido');},2200+items.length*100);
+  }catch(err){
+    addLog('\u274C Errore: '+err.message,1200);
+    setTimeout(function(){procEl.classList.remove('active');showToast('Errore: '+err.message);},2500);
+  }
+};
+// P-FOTO2: Override nuovoArticoloDaFoto — risoluzione alta + prompt migliorato
+nuovoArticoloDaFoto=async function(){
+  var input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.capture='environment';
+  input.onchange=async function(e){
+    var file=e.target.files[0];if(!file)return;
+    showToast('Comprimo e analizzo...');
+    var apiKey=localStorage.getItem('mag_apikey');
+    if(!apiKey){showToast('Inserisci prima la chiave API');return;}
+    try{
+      var dataUrl=await compressForAPI(file,1024,0.7);
+      showToast('Invio all\'AI...');
+      var prompt='Guarda questa foto di un prodotto, cartone o etichetta. Estrai le informazioni visibili.\nTRASCRIVI ESATTAMENTE quello che leggi, non inventare.\nRispondi SOLO con JSON: {"code":"codice articolo","desc":"descrizione prodotto","fornitore":"produttore/marca","qty":"quantita o vuoto"}';
+      var text=await callGroqVision(apiKey,dataUrl,prompt);
+      var clean=text.replace(/```json|```/g,'').trim();
+      var jsonMatch=clean.match(/\{[^}]+\}/);
+      if(!jsonMatch)throw new Error('Nessun dato estratto');
+      var info=JSON.parse(jsonMatch[0]);
+      document.getElementById('new-code').value=info.code||'';
+      document.getElementById('new-desc').value=info.desc||'';
+      document.getElementById('new-fornitore').value=info.fornitore||'';
+      if(info.qty)document.getElementById('new-qty').value=info.qty;
+      openModal();showToast('\u2705 Campi precompilati!');
+    }catch(err){showToast('\u274C '+err.message);openModal();}
+  };input.click();
+};
+// P-FOTO3: Override importArticoliDaPDF — risoluzione alta per foto
+importArticoliDaPDF=async function(){
+  var input=document.createElement('input');input.type='file';input.accept='.pdf,image/jpeg,image/png';
+  input.onchange=async function(e){
+    var file=e.target.files[0];if(!file)return;
+    var procEl=document.getElementById('ai-proc-entrata');
+    var logEl=document.getElementById('ai-log-entrata');
+    if(procEl)procEl.classList.add('active');
+    if(logEl)logEl.innerHTML='';
+    var addLog=function(msg,delay){setTimeout(function(){if(logEl){var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);}},delay||0);};
+    addLog('File: '+file.name,0);
+    var apiKey=localStorage.getItem('mag_apikey');
+    if(!apiKey){addLog('\u26A0 Chiave API mancante!',400);if(procEl)procEl.classList.remove('active');return;}
+    try{
+      var isImage=file.type.startsWith('image/');
+      if(!isImage){addLog('\u26A0 Per PDF, scatta una foto al documento.',400);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
+      addLog('Comprimo (alta qualità)...',400);
+      var dataUrl=await compressForAPI(file,1280,0.7);
+      addLog('Invio all\'AI...',800);
+      var prompt='Sei un sistema OCR per documenti magazzino italiani (listini, cataloghi, bolle).\n\nEstrai TUTTI i prodotti/articoli dalla tabella.\nPer ogni articolo:\n- code: codice prodotto se visibile\n- desc: descrizione ESATTA come scritta\n- qty: quantità se presente, altrimenti 0\n- fornitore: nome fornitore/produttore se nell\'intestazione\n\nTRASCRIVI ESATTAMENTE, NON inventare.\nRispondi SOLO JSON: [{"code":"...","desc":"...","qty":N,"fornitore":"..."}]';
+      var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',max_tokens:2000,temperature:0.05,messages:[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:dataUrl}}]}]})});
+      var data=await resp.json();
+      if(!resp.ok){addLog('\u274C Errore: '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
+      var text=data.choices?.[0]?.message?.content||'';
+      addLog('Risposta ricevuta, elaboro...',1200);
+      var clean=text.replace(/```json|```/g,'').trim();
+      var jsonMatch=clean.match(/\[[\s\S]*\]/);
+      var items=[];
+      try{items=JSON.parse(jsonMatch?jsonMatch[0]:clean);}catch(pe){items=[];}
+      if(items.length===0){addLog('\u26A0 Nessun articolo trovato',1600);setTimeout(function(){if(procEl)procEl.classList.remove('active');showToast('Nessun articolo trovato');},2500);return;}
+      var nuovi=0,aggiornati=0;
+      items.forEach(function(it){
+        if(!it.desc&&!it.code)return;
+        var existing=cercaArticolo(it.code||it.desc);
+        if(existing){if(it.qty&&it.qty>0){existing.qty+=parseInt(it.qty)||0;aggiornati++;}}
+        else{var code=it.code||('NEW-'+Date.now()+'-'+(nuovi+1));var fornitore=it.fornitore||'';if(fornitore&&!fornitori.find(function(f){return f.nome===fornitore;}))fornitori.push({nome:fornitore,email:'',logo:''});inventario.push({id:nextId++,code:code,codeForn:'',desc:it.desc||code,cat:'Altro',fornitore:fornitore,cliente:'',qty:parseInt(it.qty)||0,min:5,preOrdine:7,ordinato:false,udm:'cartoni',pezziPerCartone:0,_incompleto:true});nuovi++;}
+      });
+      saveData();updateStats();popolaDatalistUscita();
+      addLog('\u2705 '+nuovi+' nuovi + '+aggiornati+' aggiornati',1600);
+      setTimeout(function(){if(procEl)procEl.classList.remove('active');showToast('\u2705 '+nuovi+' articoli registrati'+(aggiornati>0?', '+aggiornati+' aggiornati':''));showView('inventario');},2500);
+    }catch(err){addLog('\u274C '+err.message,1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');showToast('Errore: '+err.message);},3000);}
+  };input.click();
+};
 // P2: stampaFornitore — stampa elenco articoli
 function stampaFornitore(forn){
   var articoli=inventario.filter(function(a){return a.fornitore===forn;});
