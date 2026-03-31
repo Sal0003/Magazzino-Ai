@@ -191,7 +191,7 @@
 
 
 
-<div class="gino-panel" id="gino-panel"><div class="gino-header"><span style="font-family:var(--fh);font-size:18px;color:var(--accent)">🎤 GINO</span><div style="display:flex;gap:8px"><button onclick="minimizeGino()" style="background:none;border:1px solid var(--b2);border-radius:6px;color:var(--accent);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1" title="Riduci">−</button><button onclick="closeGino()" style="background:none;border:1px solid rgba(240,62,62,.4);border-radius:6px;color:var(--danger);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1" title="Chiudi">×</button></div></div><div class="gino-chat" id="gino-chat"></div><div id="gino-listening-label" style="display:none;text-align:center;font-size:12px;color:var(--accent);font-family:var(--fm);padding:4px 0;animation:pulse 1s infinite">● In ascolto...</div><div class="gino-input-row"><button class="gino-mic" id="gino-mic-btn" onclick="toggleGinoMic()" style="background:#1a1a1a;border:2px solid rgba(255,255,255,.9);border-radius:10px;padding:10px 14px;font-size:18px;cursor:pointer;flex-shrink:0;transition:all .2s">🎤</button><input class="gino-input" id="gino-input" placeholder="Scrivi o parla..." onkeydown="ginoKeydown(event)"><button onclick="startGinoContinuous()" style="background:#1a1a1a;border:2px solid rgba(255,255,255,.9);border-radius:10px;padding:10px 12px;font-size:15px;cursor:pointer;flex-shrink:0;color:#90cdf4" title="Ascolto continuo">∞</button><button class="gino-send" onclick="sendGinoMsg()">➤</button></div></div>
+<div class="gino-panel" id="gino-panel"><div class="gino-header"><span style="font-family:var(--fh);font-size:18px;color:var(--accent)">🎤 GINO</span><div style="display:flex;gap:8px"><button onclick="minimizeGino()" style="background:none;border:1px solid var(--b2);border-radius:6px;color:var(--accent);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1" title="Riduci">−</button><button onclick="closeGino()" style="background:none;border:1px solid rgba(240,62,62,.4);border-radius:6px;color:var(--danger);font-size:16px;cursor:pointer;padding:2px 8px;line-height:1" title="Chiudi">×</button></div></div><div class="gino-chat" id="gino-chat"></div><div id="gino-listening-label" style="display:none;text-align:center;font-size:12px;color:var(--accent);font-family:var(--fm);padding:4px 0;animation:pulse 1s infinite">● In ascolto...</div><div class="gino-input-row"><input class="gino-input" id="gino-input" placeholder="Scrivi o parla..." onkeydown="ginoKeydown(event)"><button id="gino-mic-btn" onclick="toggleGinoMic()" style="background:#1a1a1a;border:2px solid rgba(255,255,255,.9);border-radius:10px;padding:10px 14px;font-size:18px;cursor:pointer;flex-shrink:0;transition:all .2s;color:#90cdf4" title="Ascolto continuo">🎙️</button><button class="gino-send" onclick="sendGinoMsg()">➤</button></div></div>
 
 <div id="settings-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:40px 20px 40px">
 <div style="background:#313131;border:2px solid rgba(255,255,255,.9);border-radius:20px;padding:28px 24px;width:90%;max-width:400px;margin:0 auto">
@@ -495,6 +495,48 @@ renderClientHome=function(){
     '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-secondary" style="flex:1;font-size:12px" onclick="event.stopPropagation();selectReportArticleById(\'cli_'+nome+'\');showView(\'report\')">\u{1F4CA} Report</button><button class="btn btn-second" style="flex:1;font-size:12px" onclick="event.stopPropagation();openClienteModal(\''+nome+'\',\''+color+'\')">\u2699 Scheda</button><button class="btn btn-danger" style="font-size:12px" onclick="event.stopPropagation();eliminaCliente(\''+nome+'\')">\u{1F5D1}</button></div>'+
     '</div></div></div>';
   }).join('');
+};
+// P7: movItem — badge mostra UdM reale (KG, COPPIE, ecc.) invece di CARTONI fisso
+var _origMovItem=movItem;
+movItem=function(m){
+  var isIn=m.type==='entrata';
+  var t=new Date(m.ts);
+  var timeStr=t.toLocaleDateString('it-IT')+' '+t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  var unitLabel=m.unitType==='pezzi'?'pezzi':(m.udm||'');
+  // Badge UdM reale
+  var udmReale=(m.udm||'cartoni').toUpperCase();
+  var unitBadge='';
+  if(m.unitType==='pezzi'){
+    unitBadge='<span style="font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;background:rgba(255,140,66,.15);color:#ff8c42">PEZZI</span>';
+  }else{
+    unitBadge='<span style="font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;background:rgba(79,140,255,.15);color:#4f8cff">'+udmReale+'</span>';
+  }
+  var sfusiNote=m.pezziSfusi>0?' <span style="font-size:11px;color:#ff8c42">+ '+m.pezziSfusi+' pz sfusi</span>':'';
+  return '<div class="mov-item"><div class="mov-icon '+(isIn?'in':'out')+'">'+(isIn?'\u{1F4E5}':'\u{1F4E4}')+'</div><div class="mov-info"><div class="mov-title">'+m.desc+'</div><div class="mov-sub">'+m.code+' \u00B7 '+(isIn?'Carico':'Scarico')+unitBadge+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0"><div class="mov-qty '+(isIn?'in':'out')+'">'+(isIn?'+':'-')+m.qty+' <span style="font-size:13px">'+unitLabel+'</span></div>'+sfusiNote+'<div style="font-size:12px;color:'+(isIn?'var(--green)':'var(--danger)')+';font-family:var(--fm);text-transform:uppercase;letter-spacing:1px;margin-top:1px">'+(isIn?'entrata':'uscita')+'</div></div><div class="mov-time">'+timeStr+'</div></div>';
+};
+// P8: toggleVoice — messaggio semplice all'apertura
+var _origToggleVoice=toggleVoice;
+toggleVoice=function(){
+  ginoOpen=!ginoOpen;
+  var panel=document.getElementById('gino-panel');
+  if(panel)panel.classList.toggle('active',ginoOpen);
+  var mini=document.getElementById('gino-mini');
+  if(mini)mini.style.display='none';
+  if(ginoOpen){
+    ginoHistory=[];
+    var benvenuto='Ciao, sono GINO! Come posso aiutarti?';
+    appendGinoMsg('assistant',benvenuto);
+    ginoParla(benvenuto);
+    var urlParams=new URLSearchParams(window.location.search);
+    if(urlParams.get('listen')==='1'){
+      setTimeout(function(){ginoContinuous=true;startGinoMic();},2500);
+    }
+  }else{stopGinoMic();ginoContinuous=false;}
+};
+// P9: toggleGinoMic — bottone unico, fa sempre ascolto continuo
+toggleGinoMic=function(){
+  if(ginoContinuous){ginoContinuous=false;stopGinoMic();showToast('Ascolto disattivato');return;}
+  ginoContinuous=true;showToast('In ascolto \u2014 di STOP per fermare');startGinoMic();
 };
 </script>
 </body>
