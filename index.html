@@ -176,18 +176,29 @@
 <div class="toast" id="toast"><span class="toast-icon">✓</span><span id="toast-msg"></span></div>
 
 <div class="mobile-nav" id="mobile-nav"><div class="mobile-nav-inner">
-  <button class="mobile-nav-btn active" id="mnav-dashboard" onclick="showView('dashboard')"><span class="mnav-icon">📊</span><span class="mnav-label">Dashboard</span></button>
+  <button class="mobile-nav-btn active" id="mnav-dashboard" onclick="showView('dashboard')"><span class="mnav-icon">📊</span><span class="mnav-label">Dash</span></button>
   <button class="mobile-nav-btn" id="mnav-inventario" onclick="showView('inventario')"><span class="mnav-icon">📦</span><span class="mnav-label">Inventario</span></button>
-  <button class="mobile-nav-btn" id="mnav-entrata" onclick="showView('entrata')"><span class="mnav-icon">📥</span><span class="mnav-label">Entrata</span></button>
   <button class="mnav-gino-btn" id="voice-btn" onclick="toggleVoice()" title="Assistente GINO">🎤<span style="font-size:10px;display:block;margin-top:2px;font-family:var(--fm)">GINO</span></button>
+  <button class="mobile-nav-btn" id="mnav-entrata" onclick="showView('entrata')"><span class="mnav-icon">📥</span><span class="mnav-label">Entrata</span></button>
   <button class="mobile-nav-btn" id="mnav-uscita" onclick="showView('uscita')"><span class="mnav-icon">📤</span><span class="mnav-label">Uscita</span></button>
-  <button class="mobile-nav-btn" id="mnav-proforma" onclick="showView('proforma')"><span class="mnav-icon">📋</span><span class="mnav-label">Proforma</span></button>
-  <button class="mobile-nav-btn" id="mnav-clienti" onclick="showView('clienti')"><span class="mnav-icon">👤</span><span class="mnav-label">Clienti</span></button>
-  <button class="mobile-nav-btn" id="mnav-ordini" onclick="showView('ordini')"><span class="mnav-icon">🛒</span><span class="mnav-label">Ordini</span></button>
-  <button class="mobile-nav-btn" id="mnav-note" onclick="showView('note')"><span class="mnav-icon">📝</span><span class="mnav-label">Note</span></button>
-  <button class="mobile-nav-btn" id="mnav-parcoauto" onclick="showView('parcoauto')"><span class="mnav-icon">🚛</span><span class="mnav-label">Furgoni</span></button>
-  <button class="mobile-nav-btn" onclick="openSettings()" style="color:#c8c8c8"><span class="mnav-icon">⚙️</span><span class="mnav-label">API</span></button>
+  <button class="mobile-nav-btn" id="mnav-altro" onclick="toggleAltroMenu()"><span class="mnav-icon">⋯</span><span class="mnav-label">Altro</span></button>
 </div></div>
+
+<div id="altro-sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:flex-end;justify-content:center" onclick="chiudiAltroMenu()">
+<div onclick="event.stopPropagation()" style="background:#2e2e2e;border:2px solid rgba(255,255,255,.9);border-radius:20px 20px 0 0;padding:16px 20px 28px;width:100%;max-width:480px;animation:sheetUp .25s ease">
+  <div style="width:36px;height:4px;background:rgba(255,255,255,.15);border-radius:2px;margin:0 auto 18px"></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+    <button onclick="chiudiAltroMenu();showView('proforma')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">📋</span>Proforma</button>
+    <button onclick="chiudiAltroMenu();showView('clienti')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">👤</span>Clienti</button>
+    <button onclick="chiudiAltroMenu();showView('ordini')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">🛒</span>Ordini</button>
+    <button onclick="chiudiAltroMenu();showView('note')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">📝</span>Note</button>
+    <button onclick="chiudiAltroMenu();showView('report')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">📈</span>Report</button>
+    <button onclick="chiudiAltroMenu();showView('movimenti')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">📋</span>Movimenti</button>
+    <button onclick="chiudiAltroMenu();showView('parcoauto')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">🚛</span>Furgoni</button>
+    <button onclick="chiudiAltroMenu();openSettings()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">⚙️</span>API</button>
+  </div>
+</div>
+</div>
 
 
 
@@ -563,6 +574,151 @@ setUscitaUnit=function(unit){
   if(pills[idx]){pills[idx].style.background='var(--accent)';pills[idx].style.color='#000';pills[idx].style.borderColor='var(--accent)';}
   var labels={cartoni:'Quantit\u00E0 (cartoni)',pezzi:'Quantit\u00E0 (pezzi)',confezioni:'Quantit\u00E0 (confezioni)',coppie:'Quantit\u00E0 (coppie)',kg:'Quantit\u00E0 (kg)'};
   var lbl=document.getElementById('man-usc-qty-label');if(lbl)lbl.textContent=labels[unit]||'Quantit\u00E0';
+};
+// P12: Menu Altro — toggle/chiudi
+function toggleAltroMenu(){
+  var sheet=document.getElementById('altro-sheet');
+  if(!sheet)return;
+  sheet.style.display=sheet.style.display==='flex'?'none':'flex';
+}
+function chiudiAltroMenu(){
+  var sheet=document.getElementById('altro-sheet');
+  if(sheet)sheet.style.display='none';
+}
+// P13: fix renderClientHome — UdM reale + fix conteggio
+renderClientHome=function(){
+  var container=document.getElementById('clienti-home-list');if(!container)return;
+  var nomiSet=new Set();
+  clientiPersonalizzati.forEach(function(c){nomiSet.add(c);});
+  movimenti.concat(archivioMovimenti).forEach(function(m){if(m.cliente)nomiSet.add(m.cliente);});
+  inventario.forEach(function(a){if(a.cliente)nomiSet.add(a.cliente);});
+  var nomi=[...nomiSet].sort();
+  if(nomi.length===0){container.innerHTML='<div class="empty-state"><div class="empty-icon">\u{1F464}</div><p>Nessun cliente registrato.</p></div>';return;}
+  var allMov=archivioMovimenti.length>0?archivioMovimenti:movimenti;
+  var colors=['#f472b6','#60a5fa','#34d399','#fbbf24','#a78bfa','#fb7185','#90cdf4','#3ecf6e'];
+  container.innerHTML=nomi.map(function(nome,i){
+    var movCli=allMov.filter(function(m){return m.type==='uscita'&&m.cliente&&m.cliente.toLowerCase()===nome.toLowerCase();});
+    var totConsegne=movCli.length;
+    var totQty=movCli.reduce(function(s,m){return s+m.qty;},0);
+    // UdM prevalente dai movimenti
+    var udmCount={};movCli.forEach(function(m){var u=(m.unitType==='pezzi'?'pezzi':(m.udm||'cartoni'));udmCount[u]=(udmCount[u]||0)+1;});
+    var udmLabel='pz';var maxC=0;Object.keys(udmCount).forEach(function(u){if(udmCount[u]>maxC){maxC=udmCount[u];udmLabel=u;}});
+    if(totConsegne===0)udmLabel='consegne';
+    var ultime3=movCli.sort(function(a,b){return new Date(b.ts)-new Date(a.ts);}).slice(0,3);
+    var color=colors[i%colors.length];
+    var profilo=getClienteProfilo(nome);
+    var initials=nome.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+    var avatarHtml=profilo.logo?'<span class="gp-avatar" style="width:42px;height:42px;background:transparent;border:1.5px solid var(--b2);padding:2px"><img src="'+profilo.logo+'" style="width:100%;height:100%;object-fit:contain;border-radius:8px"></span>':'<span class="gp-avatar" style="width:42px;height:42px;--av-color:'+color+'">'+initials+'</span>';
+    return '<div class="group-panel"><div class="group-panel-header" onclick="togglePanel(\'clih-'+i+'\')"><div style="display:flex;align-items:center;gap:12px;width:100%">'+avatarHtml+'<div style="flex:1;min-width:0"><div style="font-family:var(--fh);font-size:16px;font-weight:700;color:var(--tx)">'+escapeHtml(nome)+'</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">'+totConsegne+' consegne \u00B7 '+totQty+' '+udmLabel+' totali</div></div><span class="gp-chevron">\u203A</span></div></div><div class="group-panel-body" id="clih-'+i+'"><div style="padding:16px">'+
+    (ultime3.length===0?'<div style="font-size:12px;color:var(--tx2);padding:8px 0">Nessuna consegna registrata</div>':
+    '<div style="font-family:var(--fh);font-size:12px;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Ultime consegne</div>'+
+    ultime3.map(function(m){
+      var d=new Date(m.ts);var mUdm=m.unitType==='pezzi'?'pz':(m.udm||'ct');
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--s1);border-radius:8px;margin-bottom:6px;border-left:3px solid var(--danger)"><div><div style="font-size:13px;color:var(--tx)">'+escapeHtml(m.desc)+'</div><div style="font-size:11px;color:var(--tx2);margin-top:2px">'+d.toLocaleDateString('it-IT')+' \u00B7 '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+'</div></div><div style="font-size:18px;font-weight:700;color:var(--danger)">-'+m.qty+' '+mUdm+'</div></div>';
+    }).join(''))+
+    '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-secondary" style="flex:1;font-size:12px" onclick="event.stopPropagation();selectReportArticleById(\'cli_'+nome+'\');showView(\'report\')">\u{1F4CA} Report</button><button class="btn btn-second" style="flex:1;font-size:12px" onclick="event.stopPropagation();openClienteModal(\''+nome+'\',\''+color+'\')">\u2699 Scheda</button><button class="btn btn-danger" style="font-size:12px" onclick="event.stopPropagation();eliminaCliente(\''+nome+'\')">\u{1F5D1}</button></div>'+
+    '</div></div></div>';
+  }).join('');
+};
+// P14: fix renderReportCliente — no undefined, match case-insensitive
+renderReportCliente=function(nome){
+  document.getElementById('report-search').value='\u{1F464} '+nome;
+  document.getElementById('report-suggestions').style.display='none';
+  document.getElementById('report-filters').style.display='flex';
+  reportArticolo={code:'CLI_'+nome,desc:nome};
+  var el=document.getElementById('report-content');
+  var range=getReportDateRange();if(!range){el.innerHTML='';return;}
+  var allMov=archivioMovimenti.length>0?archivioMovimenti:movimenti;
+  var movCli=allMov.filter(function(m){return m.cliente&&m.cliente.toLowerCase()===nome.toLowerCase()&&new Date(m.ts)>=range.from&&new Date(m.ts)<=range.to;});
+  var uscite=movCli.filter(function(m){return m.type==='uscita'});
+  var entrate=movCli.filter(function(m){return m.type==='entrata'});
+  var articoliMap={};uscite.forEach(function(m){if(!articoliMap[m.code])articoliMap[m.code]={desc:m.desc,totale:0,volte:0,udm:m.udm||'ct'};articoliMap[m.code].totale+=m.qty;articoliMap[m.code].volte++;});
+  var oggi=new Date().toLocaleDateString('it-IT');
+  var html='<div style="border-bottom:1.5px solid rgba(255,255,255,.65);padding-bottom:22px;margin-bottom:28px"><div style="font-size:11px;letter-spacing:2px;color:#c0c0c0;text-transform:uppercase;margin-bottom:12px">Report cliente \u00B7 '+oggi+'</div><div style="font-size:26px;font-weight:700;color:#90cdf4;margin-bottom:8px">\u{1F464} '+escapeHtml(nome)+'</div></div>';
+  html+=titolo('Riepilogo');
+  html+=riga('Consegne totali',uscite.length+' movimenti');
+  html+=riga('Totale scaricato',uscite.reduce(function(s,m){return s+m.qty},0)+' pz');
+  if(entrate.length>0)html+=riga('Carichi per cliente',entrate.length+' movimenti');
+  if(uscite.length>0){uscite.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});html+=riga('Ultima consegna',new Date(uscite[0].ts).toLocaleDateString('it-IT'));}
+  html+='</div>';
+  html+=titolo('Articoli consegnati');var ak=Object.keys(articoliMap);
+  if(ak.length===0)html+='<div style="padding:16px 0;color:#c0c0c0">Nessuna consegna nel periodo.</div>';
+  else{ak.sort(function(a,b){return articoliMap[b].totale-articoliMap[a].totale});ak.forEach(function(code){var d=articoliMap[code];html+=riga(d.desc,''+d.totale+' '+d.udm+' \u00B7 '+d.volte+' volte');});}
+  html+='</div>';
+  html+=titolo('Storico');
+  if(movCli.length===0)html+='<div style="padding:16px 0;color:#c0c0c0">Nessun movimento nel periodo.</div>';
+  else{movCli.slice().reverse().forEach(function(m){var d=new Date(m.ts);var isU=m.type==='uscita';var mUdm=m.unitType==='pezzi'?'pz':(m.udm||'ct');html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1.5px solid rgba(255,255,255,.65)"><div><div style="font-size:15px;color:#c0c0c0">'+d.toLocaleDateString('it-IT')+' \u00B7 '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+'</div><div style="font-size:14px;color:#fff;margin-top:3px">'+m.desc+'</div></div><div style="text-align:right"><div style="font-size:18px;font-weight:700;color:'+(isU?'#f03e3e':'#3ecf6e')+'">'+(isU?'\u2212':'+')+m.qty+' '+mUdm+'</div></div></div>';});}
+  html+='</div>';
+  el.innerHTML=html;
+};
+// P15: fix addManUscita — salva unitType corretto (non sempre 'cartoni')
+var _origAddManUscita=addManUscita;
+addManUscita=function(){
+  var artVal=document.getElementById('man-uscita-art').value.trim();
+  var descVal=document.getElementById('man-uscita-desc')?.value.trim()||'';
+  var qty=parseInt(document.getElementById('man-uscita-qty').value)||0;
+  var cliente=document.getElementById('man-uscita-cliente').value.trim();
+  var query=artVal||descVal;
+  if(!query||qty<=0){showToast('Inserisci articolo e quantit\u00E0');return;}
+  var art=cercaArticolo(query);
+  if(!art){showToast('Articolo non trovato: '+artVal);return;}
+  var unitType=_uscitaUnit;
+  var now=new Date().toISOString();
+  if(unitType==='pezzi'&&art.pezziPerCartone>0){
+    var totPz=getTotalPezzi(art);
+    if(totPz<=0){showToast('Articolo esaurito: '+art.desc);return;}
+    var qtyEff=scaricaPezzi(art,qty);
+    movimenti.push({type:'uscita',code:art.code,desc:art.desc,qty:qtyEff,ts:now,cliente:cliente||art.cliente||'',fornitore:art.fornitore||'',udm:art.udm||'cartoni',unitType:'pezzi'});
+    archivioMovimenti.push({type:'uscita',code:art.code,desc:art.desc,qty:qtyEff,ts:now,cliente:cliente||art.cliente||'',fornitore:art.fornitore||'',udm:art.udm||'cartoni',unitType:'pezzi'});
+    saveData();updateStats();checkAlertDopoUscita();
+    showToast('\u2713 Scaricati '+qtyEff+' pezzi di '+art.desc);
+  }else{
+    if(art.qty<=0){showToast('Articolo esaurito: '+art.desc);return;}
+    var qtyEff=Math.min(qty,art.qty);art.qty-=qtyEff;
+    movimenti.push({type:'uscita',code:art.code,desc:art.desc,qty:qtyEff,ts:now,cliente:cliente||art.cliente||'',fornitore:art.fornitore||'',udm:unitType||art.udm||'cartoni',unitType:unitType});
+    archivioMovimenti.push({type:'uscita',code:art.code,desc:art.desc,qty:qtyEff,ts:now,cliente:cliente||art.cliente||'',fornitore:art.fornitore||'',udm:unitType||art.udm||'cartoni',unitType:unitType});
+    saveData();updateStats();checkAlertDopoUscita();
+    showToast('\u2713 Scaricati '+qtyEff+' '+unitType+' di '+art.desc);
+  }
+  document.getElementById('man-uscita-art').value='';document.getElementById('man-uscita-qty').value='';
+  document.getElementById('man-uscita-cliente').value='';
+  if(document.getElementById('man-uscita-desc'))document.getElementById('man-uscita-desc').value='';
+};
+// P16: fix addManual — salva unitType corretto
+var _origAddManual=addManual;
+addManual=function(){
+  var code=document.getElementById('man-art').value.trim();
+  var desc=document.getElementById('man-art-desc')?.value.trim()||'';
+  var qty=parseInt(document.getElementById('man-qty').value)||0;
+  var sfusi=parseInt(document.getElementById('man-sfusi')?.value)||0;
+  var query=code||desc;
+  if(!query||qty<=0){showToast('Inserisci articolo e quantit\u00E0');return;}
+  var existing=cercaArticolo(query);
+  var unitType=_entrataUnit;
+  var now=new Date().toISOString();
+  if(existing){
+    if(unitType==='pezzi'&&existing.pezziPerCartone>0){
+      caricaPezzi(existing,qty);
+      movimenti.push({type:'entrata',code:existing.code,desc:existing.desc,qty:qty,ts:now,udm:existing.udm||'cartoni',unitType:'pezzi'});
+      archivioMovimenti.push({type:'entrata',code:existing.code,desc:existing.desc,qty:qty,ts:now,udm:existing.udm||'cartoni',unitType:'pezzi'});
+    }else{
+      existing.qty+=qty;
+      if(sfusi>0&&existing.pezziPerCartone>0)caricaPezzi(existing,sfusi);
+      movimenti.push({type:'entrata',code:existing.code,desc:existing.desc,qty:qty,pezziSfusi:sfusi,ts:now,udm:unitType||existing.udm||'cartoni',unitType:unitType});
+      archivioMovimenti.push({type:'entrata',code:existing.code,desc:existing.desc,qty:qty,pezziSfusi:sfusi,ts:now,udm:unitType||existing.udm||'cartoni',unitType:unitType});
+    }
+  }else{
+    inventario.push({id:nextId++,code:code,desc:code,cat:'Altro',qty:unitType==='pezzi'?0:qty,min:5,pezziSfusi:unitType==='pezzi'?qty:sfusi,udm:unitType||'cartoni'});
+    movimenti.push({type:'entrata',code:code,desc:code,qty:qty,ts:now,unitType:unitType,udm:unitType||'cartoni'});
+    archivioMovimenti.push({type:'entrata',code:code,desc:code,qty:qty,ts:now,unitType:unitType,udm:unitType||'cartoni'});
+  }
+  document.getElementById('man-art').value='';document.getElementById('man-qty').value='';
+  if(document.getElementById('man-art-desc'))document.getElementById('man-art-desc').value='';
+  if(document.getElementById('man-sfusi'))document.getElementById('man-sfusi').value='';
+  updateStats();
+  var label=unitType==='pezzi'?qty+' pezzi':qty+' '+unitType+(sfusi>0?' + '+sfusi+' pz sfusi':'');
+  showToast('Carico aggiunto: +'+label+' '+(code||desc));
+  saveData();
 };
 </script>
 </body>

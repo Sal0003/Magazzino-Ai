@@ -1,4 +1,4 @@
-const CACHE_NAME = 'magazzai-v17';
+const CACHE_NAME = 'magazzai-v18';
 const urlsToCache = [
   './',
   './index.html',
