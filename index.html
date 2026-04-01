@@ -193,7 +193,6 @@
     <button onclick="chiudiAltroMenu();showView('ordini')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">🛒</span>Ordini</button>
     <button onclick="chiudiAltroMenu();showView('note')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">📝</span>Note</button>
     <button onclick="chiudiAltroMenu();showView('report')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">📈</span>Report</button>
-    <button onclick="chiudiAltroMenu();showView('movimenti')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">📋</span>Movimenti</button>
     <button onclick="chiudiAltroMenu();showView('parcoauto')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">🚛</span>Furgoni</button>
     <button onclick="chiudiAltroMenu();openSettings()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;background:var(--s2);border:1.5px solid var(--b2);border-radius:14px;color:var(--tx);font-family:var(--fm);font-size:12px;cursor:pointer"><span style="font-size:26px">⚙️</span>API</button>
   </div>
@@ -346,6 +345,78 @@ addManual=function(){var code=document.getElementById('man-art').value.trim();va
 
 // Modal scroll fix - blocca body quando modal è aperto
 (function(){var origOpen=openModal;openModal=function(){document.body.style.overflow='hidden';return origOpen.apply(this,arguments);};var origClose=closeModal;closeModal=function(){document.body.style.overflow='';return origClose.apply(this,arguments);};})();
+
+// FIX CRITICO: renderReport deve delegare a renderReportCliente se è un cliente
+var _origRenderReport=renderReport;
+renderReport=function(){
+  if(reportArticolo&&reportArticolo.code&&reportArticolo.code.indexOf('CLI_')===0){
+    renderReportCliente(reportArticolo.desc);
+    return;
+  }
+  _origRenderReport();
+};
+
+// FIX ORDINI: qty vuota di default, rimuovi articoli sopra soglia
+renderOrdini=function(){
+  // Aggiungi solo articoli sotto soglia
+  inventario.forEach(function(a){
+    if(!a.fornitore||!a.preOrdine)return;
+    if(a.qty<=a.preOrdine){
+      if(!ordiniFornitore[a.fornitore])ordiniFornitore[a.fornitore]={articoli:[],stato:'aperto',esclusi:[]};
+      var ordine=ordiniFornitore[a.fornitore];if(!ordine.esclusi)ordine.esclusi=[];
+      if(ordine.esclusi.includes(a.id))return;
+      if(!ordine.articoli.find(function(x){return x.id===a.id})){
+        ordine.articoli.push({id:a.id,code:a.code,desc:a.desc,qtyDaOrdinare:'',auto:true,note:''});
+      }
+    }
+  });
+  // Rimuovi articoli risaliti sopra soglia
+  Object.keys(ordiniFornitore).forEach(function(forn){
+    var o=ordiniFornitore[forn];if(o.inviato)return;
+    o.articoli=o.articoli.filter(function(oa){
+      var art=inventario.find(function(a){return a.id===oa.id});
+      if(!art)return false;
+      return art.qty<=art.preOrdine;
+    });
+  });
+  // Pulisci ordini vuoti
+  Object.keys(ordiniFornitore).forEach(function(forn){if(!ordiniFornitore[forn].inviato&&ordiniFornitore[forn].articoli.length===0)delete ordiniFornitore[forn];});
+  var container=document.getElementById('ordini-panels');var fornKeys=Object.keys(ordiniFornitore).filter(function(f){return ordiniFornitore[f].articoli.length>0});
+  if(fornKeys.length===0){container.innerHTML='<div class="empty-state"><div class="empty-icon">🛒</div><p>Nessun ordine da fare.</p></div>';return;}
+  container.innerHTML=fornKeys.map(function(forn){var ordine=ordiniFornitore[forn];var nArt=ordine.articoli.length;var rows=ordine.articoli.map(function(oa,i){var art=inventario.find(function(a){return a.id===oa.id});var giac=art?art.qty:'—';return'<tr style="border-bottom:1.5px solid rgba(255,255,255,.65)"><td style="padding:12px;color:rgba(255,255,255,.5);font-size:12px">'+oa.code+'</td><td style="padding:12px;color:#fff;font-size:13px">'+oa.desc+' <span class="'+(oa.auto?'badge-auto':'badge-manuale')+'">'+(oa.auto?'AUTO':'MAN')+'</span></td><td style="padding:12px;text-align:center;font-size:20px;color:'+(art&&art.qty===0?'var(--danger)':art&&art.qty<=art.min?'var(--warn)':'#fff')+'">'+giac+'</td><td style="padding:12px;text-align:center"><input class="ordine-qty-input" type="number" min="1" value="'+(oa.qtyDaOrdinare||'')+'" placeholder="—" onchange="updateQtyOrdine(\''+forn+'\','+i+',this.value)"></td><td style="padding:12px"><button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;color:var(--danger);border-color:var(--danger)" onclick="rimuoviDaOrdine(\''+forn+'\','+i+')">🗑</button></td></tr>';}).join('');return'<div class="ordine-panel" style="border-top:3px solid var(--accent)"><div style="padding:16px 18px 12px;background:var(--s2);display:flex;align-items:center;gap:12px">'+gpAvatarHtml(forn,'var(--accent)',36)+'<div style="flex:1"><div style="font-family:var(--fh);font-size:16px;font-weight:700;color:#fff">'+forn+'</div><div style="font-size:12px;color:var(--tx2);margin-top:2px">'+nArt+' articoli</div></div></div><div style="padding:12px 18px;border-bottom:1.5px solid rgba(255,255,255,.65);background:var(--s2);display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary" style="font-size:12px" onclick="esportaEmailOrdine(\''+forn+'\')">✉️ Email</button><button class="btn btn-secondary" style="font-size:12px" onclick="stampaOrdine(\''+forn+'\')">🖨️ Stampa</button><button class="btn btn-danger" style="font-size:12px" onclick="eliminaOrdine(\''+forn+'\')">🗑️ Elimina</button><label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-left:auto;padding:6px 12px;border-radius:8px;background:'+(ordine.inviato?'rgba(62,207,110,.12)':'var(--s3)')+';border:1.5px solid '+(ordine.inviato?'rgba(62,207,110,.4)':'#888')+'"><input type="checkbox" '+(ordine.inviato?'checked':'')+' onchange="toggleInviato(\''+forn+'\',this.checked)" style="accent-color:var(--green);width:16px;height:16px"><span style="font-size:12px;font-family:var(--fm);color:'+(ordine.inviato?'var(--green)':'var(--tx2)')+'">'+(ordine.inviato?'✅ Inviato':'Segna inviato')+'</span></label></div>'+(ordine.inviato?'<div style="padding:12px 18px;border-bottom:1.5px solid rgba(255,255,255,.65)"><button onclick="apriConsegna(\''+forn+'\')" style="width:100%;padding:11px;border-radius:10px;border:1px dashed var(--green);background:rgba(62,207,110,.06);color:var(--green);font-family:var(--fm);font-size:13px;cursor:pointer">📬 Registra consegna</button></div>':'')+'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1.5px solid rgba(255,255,255,.65)"><th style="padding:10px 12px;font-size:12px;text-align:left;color:rgba(255,255,255,.6)">Codice</th><th style="padding:10px 12px;font-size:12px;text-align:left;color:rgba(255,255,255,.6)">Articolo</th><th style="padding:10px 12px;font-size:12px;text-align:center;color:rgba(255,255,255,.6)">Giac.</th><th style="padding:10px 12px;font-size:12px;text-align:center;color:rgba(255,255,255,.6)">Qtà ordine</th><th style="padding:10px 12px;width:40px"></th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';}).join('');
+  saveData();
+};
+aggiornaOrdiniAuto=function(){
+  inventario.forEach(function(a){
+    if(!a.fornitore||!a.preOrdine)return;
+    if(a.qty<=a.preOrdine){
+      if(!ordiniFornitore[a.fornitore])ordiniFornitore[a.fornitore]={articoli:[],stato:'aperto',esclusi:[]};
+      var ordine=ordiniFornitore[a.fornitore];if(!ordine.esclusi)ordine.esclusi=[];
+      if(ordine.esclusi.includes(a.id))return;
+      if(!ordine.articoli.find(function(x){return x.id===a.id})){
+        ordine.articoli.push({id:a.id,code:a.code,desc:a.desc,qtyDaOrdinare:'',auto:true,note:''});
+      }
+    }
+  });
+  renderOrdini();showToast('Lista ordini aggiornata');
+};
+
+// X clear button per tutte le ricerche
+(function(){
+  var searchIds=['search-input','note-search','report-search'];
+  searchIds.forEach(function(id){
+    var inp=document.getElementById(id);if(!inp)return;
+    var wrap=inp.parentNode;if(!wrap)return;
+    if(wrap.style.position!=='relative')wrap.style.position='relative';
+    var btn=document.createElement('button');
+    btn.innerHTML='✕';
+    btn.style.cssText='position:absolute;right:8px;top:50%;transform:translateY(-50%);background:var(--s3);border:none;color:var(--tx2);font-size:14px;cursor:pointer;width:24px;height:24px;border-radius:50%;display:none;align-items:center;justify-content:center;z-index:2';
+    btn.onclick=function(){inp.value='';btn.style.display='none';inp.dispatchEvent(new Event('input'));};
+    inp.addEventListener('input',function(){btn.style.display=inp.value.length>0?'flex':'none';});
+    wrap.appendChild(btn);
+    inp.style.paddingRight='36px';
+  });
+})();
 
 console.log('BLOCK3 OK');
 }catch(e){console.error('BLOCK3 error:',e);}
