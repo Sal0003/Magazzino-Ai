@@ -299,7 +299,7 @@ processFile=async function(file,type){
     setTimeout(function(){procEl.classList.remove('active');if(items.length>0)showConfirm(items,isUscita?'uscita':'entrata');},2200+items.length*100);
   }catch(err){addLog('\u274C '+err.message,1200);setTimeout(function(){procEl.classList.remove('active');},2500);}
 };
-nuovoArticoloDaFoto=async function(){var input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.capture='environment';input.onchange=async function(e){var file=e.target.files[0];if(!file)return;showToast('Analizzo...');var apiKey=localStorage.getItem('mag_apikey');if(!apiKey){showToast('Chiave API mancante');return;}try{var dataUrl=await compressForAPI(file,1024,0.7);var text=await callGroqVision(apiKey,dataUrl,'Foto prodotto/cartone. Estrai info visibili. TRASCRIVI ESATTAMENTE. JSON: {"code":"","desc":"","fornitore":"","qty":""}');var clean=text.replace(/```json|```/g,'').trim();var m=clean.match(/\{[^}]+\}/);if(!m)throw new Error('No data');var info=JSON.parse(m[0]);document.getElementById('new-code').value=info.code||'';document.getElementById('new-desc').value=info.desc||'';document.getElementById('new-fornitore').value=info.fornitore||'';if(info.qty)document.getElementById('new-qty').value=info.qty;openModal();showToast('\u2705 Precompilato!');}catch(err){showToast('\u274C '+err.message);openModal();}};input.click();};
+nuovoArticoloDaFoto=async function(){var input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.capture='environment';input.onchange=async function(e){var file=e.target.files[0];if(!file)return;showToast('Analizzo...');var apiKey=localStorage.getItem('mag_apikey');if(!apiKey){showToast('Chiave API mancante');return;}try{var dataUrl=await compressForAPI(file,1280,0.7);var text=await callGroqVision(apiKey,dataUrl,'Foto prodotto/cartone. Estrai info visibili. TRASCRIVI ESATTAMENTE. JSON: {"code":"","desc":"","fornitore":"","qty":""}');var clean=text.replace(/```json|```/g,'').trim();var m=clean.match(/\{[^}]+\}/);if(!m)throw new Error('No data');var info=JSON.parse(m[0]);document.getElementById('new-code').value=info.code||'';document.getElementById('new-desc').value=info.desc||'';document.getElementById('new-fornitore').value=info.fornitore||'';if(info.qty)document.getElementById('new-qty').value=info.qty;openModal();showToast('\u2705 Precompilato!');}catch(err){showToast('\u274C '+err.message);openModal();}};input.click();};
 importArticoliDaPDF=async function(){var input=document.createElement('input');input.type='file';input.accept='.pdf,image/jpeg,image/png';input.onchange=async function(e){var file=e.target.files[0];if(!file)return;var procEl=document.getElementById('ai-proc-entrata');var logEl=document.getElementById('ai-log-entrata');if(procEl)procEl.classList.add('active');if(logEl)logEl.innerHTML='';var addLog=function(msg,delay){setTimeout(function(){if(logEl){var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);}},delay||0);};addLog('File: '+file.name,0);var apiKey=localStorage.getItem('mag_apikey');if(!apiKey){addLog('\u26A0 API mancante',400);if(procEl)procEl.classList.remove('active');return;}try{var isImage=file.type.startsWith('image/');if(!isImage){addLog('\u26A0 Scatta foto al doc',400);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}var dataUrl=await compressForAPI(file,1280,0.7);addLog('Invio AI...',800);var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',max_tokens:2000,temperature:0.05,messages:[{role:'user',content:[{type:'text',text:'OCR magazzino italiano. Estrai prodotti. TRASCRIVI ESATTAMENTE. JSON: [{"code":"","desc":"","qty":0,"fornitore":""}]'},{type:'image_url',image_url:{url:dataUrl}}]}]})});var data=await resp.json();if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}var text=data.choices?.[0]?.message?.content||'';var clean=text.replace(/```json|```/g,'').trim();var jm=clean.match(/\[[\s\S]*\]/);var items=[];try{items=JSON.parse(jm?jm[0]:clean);}catch(pe){}if(items.length===0){addLog('\u26A0 Nessun articolo',1600);setTimeout(function(){if(procEl)procEl.classList.remove('active');},2500);return;}var nuovi=0,agg=0;items.forEach(function(it){if(!it.desc&&!it.code)return;var ex=cercaArticolo(it.code||it.desc);if(ex){if(it.qty>0){ex.qty+=parseInt(it.qty)||0;agg++;}}else{var code=it.code||('NEW-'+Date.now()+'-'+(nuovi+1));var forn=it.fornitore||'';if(forn&&!fornitori.find(function(f){return f.nome===forn;}))fornitori.push({nome:forn,email:'',logo:''});inventario.push({id:nextId++,code:code,codeForn:'',desc:it.desc||code,cat:'Altro',fornitore:forn,cliente:'',qty:parseInt(it.qty)||0,min:5,preOrdine:7,udm:'cartoni',pezziPerCartone:0,_incompleto:true});nuovi++;}});saveData();updateStats();popolaDatalistUscita();addLog('\u2705 '+nuovi+' nuovi + '+agg+' agg.',1600);setTimeout(function(){if(procEl)procEl.classList.remove('active');showToast('\u2705 '+nuovi+' registrati');showView('inventario');},2500);}catch(err){addLog('\u274C '+err.message,1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);}};input.click();};
 console.log('BLOCK2 OK');
 }catch(e){console.warn('BLOCK2 error:',e);}
@@ -401,24 +401,99 @@ aggiornaOrdiniAuto=function(){
   renderOrdini();showToast('Lista ordini aggiornata');
 };
 
-// X clear button per tutte le ricerche
+// X clear per TUTTI gli input text — dentro il campo, a destra
 (function(){
-  var searchIds=['search-input','note-search','report-search'];
-  searchIds.forEach(function(id){
-    var inp=document.getElementById(id);if(!inp)return;
-    var wrap=inp.parentNode;if(!wrap)return;
-    if(wrap.style.position!=='relative')wrap.style.position='relative';
-    var btn=document.createElement('button');
-    btn.innerHTML='✕';
-    btn.style.cssText='position:absolute;right:8px;top:50%;transform:translateY(-50%);background:var(--s3);border:none;color:var(--tx2);font-size:14px;cursor:pointer;width:24px;height:24px;border-radius:50%;display:none;align-items:center;justify-content:center;z-index:2';
-    btn.onclick=function(){inp.value='';btn.style.display='none';inp.dispatchEvent(new Event('input'));};
-    inp.addEventListener('input',function(){btn.style.display=inp.value.length>0?'flex':'none';});
-    wrap.appendChild(btn);
-    inp.style.paddingRight='36px';
-  });
+  setTimeout(function(){
+    var inputs=document.querySelectorAll('input[type="text"],input[type="number"],input:not([type])');
+    inputs.forEach(function(inp){
+      if(inp.type==='file'||inp.type==='hidden'||inp.type==='checkbox'||inp.type==='date'||inp.type==='datetime-local'||inp.type==='password')return;
+      if(inp.dataset.hasClear)return;
+      inp.dataset.hasClear='1';
+      var wrap=document.createElement('div');
+      wrap.style.cssText='position:relative;display:flex;width:100%';
+      inp.parentNode.insertBefore(wrap,inp);
+      wrap.appendChild(inp);
+      inp.style.paddingRight='32px';
+      var btn=document.createElement('span');
+      btn.textContent='\u2715';
+      btn.style.cssText='position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.12);border-radius:50%;width:22px;height:22px;display:none;align-items:center;justify-content:center;color:#999;font-size:12px;cursor:pointer;z-index:5;line-height:22px;text-align:center';
+      btn.onclick=function(e){e.preventDefault();e.stopPropagation();inp.value='';btn.style.display='none';inp.dispatchEvent(new Event('input',{bubbles:true}));inp.focus();};
+      inp.addEventListener('input',function(){btn.style.display=inp.value.length>0?'flex':'none';});
+      inp.addEventListener('focus',function(){btn.style.display=inp.value.length>0?'flex':'none';});
+      inp.addEventListener('blur',function(){setTimeout(function(){btn.style.display='none';},200);});
+      wrap.appendChild(btn);
+    });
+  },500);
 })();
 
 console.log('BLOCK3 OK');
+
+// Override callGroqVision — temperatura 0.05, max_tokens 1500
+callGroqVision=async function(apiKey,imageDataUrl,prompt){
+  var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+    body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',max_tokens:1500,temperature:0.05,
+      messages:[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:imageDataUrl}}]}]})
+  });
+  var data=await resp.json();
+  if(!resp.ok)throw new Error(data.error?.message||'Errore API '+resp.status);
+  return data.choices?.[0]?.message?.content||'';
+};
+
+// Fix confermaConsegna — salva cliente nel movimento
+var _origConfermaConsegna=confermaConsegna;
+confermaConsegna=function(){
+  var forn=consegnaFornCorrente;if(!forn||!ordiniFornitore[forn])return;
+  var ordine=ordiniFornitore[forn];var aggiornati=0;
+  ordine.articoli.forEach(function(oa,i){
+    var input=document.getElementById('consegna-qty-'+i);
+    var qtyRicevuta=parseInt(input?.value)||0;
+    var qtyOrdinata=parseInt(oa.qtyDaOrdinare)||0;
+    if(qtyRicevuta<=0)return;
+    var art=inventario.find(function(a){return a.id===oa.id});
+    if(art){
+      art.qty+=qtyRicevuta;
+      var cl=art.cliente||'';
+      movimenti.unshift({type:'entrata',desc:art.desc,code:art.code,qty:qtyRicevuta,ts:new Date().toISOString(),note:'Da ordine '+forn,udm:art.udm||'cartoni',fornitore:forn,cliente:cl});
+      archivioMovimenti.unshift({type:'entrata',desc:art.desc,code:art.code,qty:qtyRicevuta,ts:new Date().toISOString(),note:'Da ordine '+forn,udm:art.udm||'cartoni',fornitore:forn,cliente:cl});
+      aggiornati++;
+      if(qtyOrdinata>0&&qtyRicevuta<qtyOrdinata)creaStralcio(art.id,art.code,art.desc,forn,art.udm||'ct',qtyOrdinata,qtyRicevuta);
+    }
+  });
+  if(aggiornati===0){showToast('Inserisci almeno una quantità');return;}
+  var stEntry=storicoOrdini.find(function(s){return s.fornitore===forn&&!s.consegnato});
+  if(stEntry){stEntry.consegnato=true;stEntry.dataConsegna=new Date().toISOString();}
+  delete ordiniFornitore[forn];chiudiConsegna();renderOrdini();renderInventario();updateStats();updateStralciBadge();
+  showToast('📬 Consegna registrata!');saveData();
+};
+
+// Fix GINO carica_articolo — salva art.cliente
+var _origGinoEsegui=ginoEseguiAzione;
+ginoEseguiAzione=function(azione,params){
+  if(azione==='carica_articolo'){
+    var query=(params.articolo||'').toLowerCase();var qty=parseInt(params.qty)||0;var fornitore=params.fornitore||'';var unitType=params.unitType||'';
+    if(!query)return'Quale articolo devo caricare?';
+    var art=cercaArticolo(query);
+    if(!art)return'Non trovo "'+params.articolo+'" in magazzino.';
+    if(qty<=0)return'Quanti '+(unitType||getUdm(art))+' di '+art.desc+'?';
+    if(!unitType&&art.pezziPerCartone>0)return'Intendi '+qty+' cartoni o '+qty+' pezzi di '+art.desc+'?';
+    var now=new Date().toISOString();var cl=art.cliente||'';
+    if(unitType==='pezzi'&&art.pezziPerCartone>0){
+      caricaPezzi(art,qty);
+      movimenti.push({type:'entrata',code:art.code,desc:art.desc,qty:qty,ts:now,fornitore:fornitore||art.fornitore||'',cliente:cl,udm:art.udm||'cartoni',unitType:'pezzi'});
+      archivioMovimenti.push({type:'entrata',code:art.code,desc:art.desc,qty:qty,ts:now,fornitore:fornitore||art.fornitore||'',cliente:cl,udm:art.udm||'cartoni',unitType:'pezzi'});
+      saveData();updateStats();refreshViste();
+      return'Caricati '+qty+' pezzi di '+art.desc+'. Totale: '+art.qty+' ct + '+(art.pezziSfusi||0)+' sfusi ('+getTotalPezzi(art)+' pz).';
+    }else{
+      art.qty+=qty;
+      movimenti.push({type:'entrata',code:art.code,desc:art.desc,qty:qty,ts:now,fornitore:fornitore||art.fornitore||'',cliente:cl,udm:art.udm||'cartoni',unitType:unitType||'cartoni'});
+      archivioMovimenti.push({type:'entrata',code:art.code,desc:art.desc,qty:qty,ts:now,fornitore:fornitore||art.fornitore||'',cliente:cl,udm:art.udm||'cartoni',unitType:unitType||'cartoni'});
+      saveData();updateStats();refreshViste();
+      return'Caricati '+qty+' '+getUdm(art)+' di '+art.desc+'. Totale: '+art.qty+'.';
+    }
+  }
+  return _origGinoEsegui(azione,params);
+};
 }catch(e){console.error('BLOCK3 error:',e);}
 </script>
 </body>
