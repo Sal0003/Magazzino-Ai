@@ -293,7 +293,7 @@ processFile=async function(file,type){
     var parsed;try{parsed=JSON.parse(jsonMatch[0]);}catch(pe){addLog('\u274C JSON error',1600);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
     var items=parsed.articoli||parsed.items||[];var fornitore=parsed.fornitore||'';var destinatario=parsed.destinatario||'';
     if(items.length===0){addLog('\u26A0 Nessun articolo',1600);setTimeout(function(){procEl.classList.remove('active');},2500);return;}
-    items=items.map(function(it){var q=parseInt(it.colli)||parseInt(it.qty)||0;var desc=it.desc||'';if(it.formato&&it.formato!=='?'&&desc.indexOf(it.formato)===-1)desc+=' '+it.formato;desc=desc.replace(/\n/g,' ').replace(/\s+/g,' ').trim();var cr=it.cliente_riga||'';if(cr==='?')cr='';return{code:it.code||'',desc:desc,qty:q,fornitore:fornitore,cliente:cr||destinatario||'',udm:it.udm||''};}).filter(function(it){return it.desc&&it.desc!=='?'&&it.desc.length>2;});
+    items=items.map(function(it){var q=parseInt(it.qty)||parseInt(it.colli)||parseInt(it.qtyPeso)||0;var desc=it.desc||'';if(it.formato&&it.formato!=='?'&&desc.indexOf(it.formato)===-1)desc+=' '+it.formato;desc=desc.replace(/\n/g,' ').replace(/\s+/g,' ').trim();var cr=it.cliente_riga||'';if(cr==='?')cr='';var udm=it.udm||'';if(udm)udm=udm.toLowerCase().replace('.','');return{code:it.code||'',desc:desc,qty:q,fornitore:fornitore,cliente:cr||destinatario||'',udm:udm};}).filter(function(it){return it.desc&&it.desc!=='?'&&it.desc.length>2;});
     addLog('\u2705 '+items.length+' articoli'+(fornitore?' - '+fornitore:''),1600);
     items.forEach(function(it,i){addLog((i+1)+'. '+it.desc+' | '+it.qty+' colli',1800+i*100);});
     setTimeout(function(){procEl.classList.remove('active');if(items.length>0)showConfirm(items,isUscita?'uscita':'entrata');},2200+items.length*100);
@@ -493,6 +493,66 @@ ginoEseguiAzione=function(azione,params){
     }
   }
   return _origGinoEsegui(azione,params);
+};
+
+// Override showConfirm — mostra UdM + cliente + fornitore
+showConfirm=function(items,type){
+  pendingItems=items;
+  var panel=document.getElementById('confirm-'+type);
+  var tbody=document.getElementById('confirm-tbody-'+type);
+  panel.classList.add('active');
+  // Banner info cliente/fornitore se trovato
+  var clienteTrovato=items.length>0?items[0].cliente||'':'';
+  var fornitoreTrovato=items.length>0?items[0].fornitore||'':'';
+  var banner='';
+  if(type==='uscita'&&clienteTrovato)banner='<div style="padding:10px 14px;margin-bottom:12px;background:rgba(144,205,244,.08);border:1px solid rgba(144,205,244,.3);border-radius:8px;font-size:13px;color:#90cdf4">👤 Cliente: <strong>'+escapeHtml(clienteTrovato)+'</strong></div>';
+  if(type==='entrata'&&fornitoreTrovato)banner='<div style="padding:10px 14px;margin-bottom:12px;background:rgba(62,207,110,.08);border:1px solid rgba(62,207,110,.3);border-radius:8px;font-size:13px;color:#3ecf6e">🏭 Fornitore: <strong>'+escapeHtml(fornitoreTrovato)+'</strong></div>';
+  var bannerEl=panel.querySelector('.confirm-banner');
+  if(!bannerEl){bannerEl=document.createElement('div');bannerEl.className='confirm-banner';panel.querySelector('.confirm-title').after(bannerEl);}
+  bannerEl.innerHTML=banner;
+  tbody.innerHTML=items.map(function(it,i){
+    var existing=findArticolo(it.code,it.desc,type);
+    var isNew=!existing;
+    var currentQty=existing?existing.qty:0;
+    var udmLabel=it.udm||( existing?(existing.udm||'cartoni'):'pz');
+    if(type==='entrata')return'<tr><td>'+escapeHtml(it.desc)+'</td><td style="color:var(--tx2)">'+escapeHtml(it.code)+'</td><td><input class="qty-input" id="pqty-'+i+'" value="'+it.qty+'" type="number" min="0" style="width:70px;padding:5px 8px;text-align:center;background:var(--s3);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:13px"></td><td><span style="font-size:12px;color:var(--tx2)">'+udmLabel+'</span> '+(isNew?'<span style="color:var(--warn)">Nuovo</span>':'<span style="color:var(--green)">✓ Esiste</span>')+'</td></tr>';
+    return'<tr><td>'+escapeHtml(it.desc)+'</td><td style="color:var(--tx2)">'+escapeHtml(it.code)+'</td><td><input class="qty-input" id="pqty-'+i+'" value="'+it.qty+'" type="number" min="0" style="width:70px;padding:5px 8px;text-align:center;background:var(--s3);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:13px"></td><td><span class="'+(currentQty<it.qty?'qty-danger':'qty-ok')+'">'+currentQty+' '+(existing?(existing.udm||'cartoni'):'—')+'</span></td></tr>';
+  }).join('');
+};
+
+// Override applyConfirm — salva UdM, cliente, fornitore dalla bolla
+applyConfirm=function(type){
+  var now=new Date().toISOString();
+  pendingItems.forEach(function(it,i){
+    var qEl=document.getElementById('pqty-'+i);
+    var qty=parseInt(qEl?.value)||0;if(qty===0)return;
+    var existing=findArticolo(it.code,it.desc,type);
+    var udmFromBolla=it.udm||'';
+    var clienteFromBolla=it.cliente||'';
+    var fornitoreFromBolla=it.fornitore||'';
+    if(type==='entrata'){
+      if(existing){
+        existing.qty+=qty;
+        if(!existing.codeForn&&it.code&&it.code!==existing.code)existing.codeForn=it.code;
+        if(fornitoreFromBolla&&!existing.fornitore)existing.fornitore=fornitoreFromBolla;
+      }else{
+        if(fornitoreFromBolla&&!fornitori.find(function(f){return f.nome===fornitoreFromBolla}))fornitori.push({nome:fornitoreFromBolla,email:'',logo:''});
+        inventario.push({id:nextId++,code:it.code,codeForn:it.code,desc:it.desc,cat:'Altro',qty:qty,min:5,preOrdine:7,fornitore:fornitoreFromBolla,cliente:clienteFromBolla,ordinato:false,udm:udmFromBolla||'cartoni',pezziPerCartone:0,_incompleto:true});
+      }
+    }else{
+      if(existing)existing.qty=Math.max(0,existing.qty-qty);
+    }
+    var art=findArticolo(it.code,it.desc,type);
+    var movUdm=udmFromBolla||( art?art.udm||'cartoni':'cartoni');
+    var movCliente=clienteFromBolla||(art?art.cliente||'':'');
+    var movFornitore=fornitoreFromBolla||(art?art.fornitore||'':'');
+    movimenti.push({type:type,code:it.code,desc:it.desc,qty:qty,ts:now,cliente:movCliente,fornitore:movFornitore,udm:movUdm});
+    archivioMovimenti.push({type:type,code:it.code,desc:it.desc,qty:qty,ts:now,cliente:movCliente,fornitore:movFornitore,udm:movUdm});
+  });
+  cancelConfirm(type);updateStats();
+  showToast(type==='entrata'?'✓ Inventario aggiornato':'✓ Scarico registrato');
+  if(type==='uscita')checkAlertDopoUscita();
+  saveData();popolaDatalistUscita();
 };
 }catch(e){console.error('BLOCK3 error:',e);}
 </script>
