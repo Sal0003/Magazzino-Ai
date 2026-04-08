@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Magazzino">
 <meta name="theme-color" content="#272727">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a0c0a'/><text y='.9em' font-size='80' x='10'>📦</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -603,7 +604,7 @@ applyConfirm=function(type){
 }catch(e){console.error('BLOCK3 error:',e);}
 </script>
 
-<!-- BLOCCO 4: Badge + Note (isolato) -->
+<!-- BLOCCO 4: Badge + Note + PDF (isolato) -->
 <script>
 try{
 function isArticoloIncompleto(a){
@@ -642,7 +643,7 @@ saveNewArticle=function(){
   if(noteEl)noteEl.value='';
 };
 
-// Badge DOM post-render
+// Badge DOM post-render — nota VISIBILE con testo
 function addArtBadges(){
   var cards=document.querySelectorAll('[onclick*="quickEdit"],[onclick*="showArtMenu"]');
   cards.forEach(function(card){
@@ -658,18 +659,19 @@ function addArtBadges(){
     var hasNote=art.noteArt&&art.noteArt.trim();
     if(!hasInc&&!hasNote)return;
     var container=document.createElement('div');
-    container.style.cssText='display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;padding:2px 0 0';
+    container.style.cssText='display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:0';
     if(hasInc){
-      var b=document.createElement('span');
-      b.style.cssText='font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(240,62,62,.15);color:#f03e3e;font-weight:600';
+      var b=document.createElement('div');
+      b.style.cssText='font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(240,62,62,.12);color:#f03e3e;font-weight:600;display:inline-block;width:fit-content';
       b.textContent='\u26A0 DA COMPLETARE';
       container.appendChild(b);
     }
     if(hasNote){
-      var n=document.createElement('span');
-      n.style.cssText='font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(144,205,244,.15);color:#90cdf4';
-      n.textContent='\uD83D\uDCDD Note';
-      n.title=art.noteArt;
+      var noteText=art.noteArt.trim();
+      var display=noteText.length>60?noteText.substring(0,60)+'...':noteText;
+      var n=document.createElement('div');
+      n.style.cssText='font-size:11px;padding:5px 8px;border-radius:6px;background:rgba(144,205,244,.08);border-left:3px solid #90cdf4;color:#b0d4f1;line-height:1.4';
+      n.textContent='\uD83D\uDCDD '+display;
       container.appendChild(n);
     }
     card.appendChild(container);
@@ -682,6 +684,153 @@ renderFornitori=function(){_b4rf.apply(this,arguments);setTimeout(addArtBadges,1
 var _b4rc=renderClienti;
 renderClienti=function(){_b4rc.apply(this,arguments);setTimeout(addArtBadges,100);};
 setTimeout(addArtBadges,800);
+
+// === PDF TEXT EXTRACTION con PDF.js ===
+async function extractTextFromPDF(file){
+  if(typeof pdfjsLib==='undefined')throw new Error('PDF.js non caricato');
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  var arrayBuffer=await file.arrayBuffer();
+  var pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+  var allText='';
+  for(var i=1;i<=pdf.numPages;i++){
+    var page=await pdf.getPage(i);
+    var content=await page.getTextContent();
+    var pageText=content.items.map(function(item){return item.str;}).join(' ');
+    allText+=pageText+'\n';
+  }
+  return allText.trim();
+}
+
+// Override processFile — supporta PDF reali
+var _b4ProcessFile=processFile;
+processFile=async function(file,type){
+  var isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
+  if(!isPDF)return _b4ProcessFile(file,type);
+  
+  var isUscita=type==='pdf'||type==='foto-uscita';
+  var procEl=document.getElementById('ai-proc-'+(isUscita?'uscita':'entrata'));
+  var logEl=document.getElementById('ai-log-'+(isUscita?'uscita':'entrata'));
+  if(procEl)procEl.classList.add('active');
+  if(logEl)logEl.innerHTML='';
+  var addLog=function(msg,delay){setTimeout(function(){if(logEl){var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);}},delay||0);};
+  
+  addLog('PDF: '+file.name,0);
+  var apiKey=localStorage.getItem('mag_apikey');
+  if(!apiKey){addLog('\u26A0 Chiave API mancante',400);if(procEl)procEl.classList.remove('active');return;}
+  
+  try{
+    addLog('Estraggo testo dal PDF...',400);
+    var pdfText=await extractTextFromPDF(file);
+    if(!pdfText||pdfText.length<10){addLog('\u26A0 PDF vuoto o non leggibile',800);if(procEl)procEl.classList.remove('active');return;}
+    addLog('Testo estratto ('+pdfText.length+' car.), invio AI...',800);
+    
+    var prompt='Sei un sistema OCR PRECISO per bolle, fatture e DDT italiani.\nQuesto è il TESTO ESTRATTO da un PDF:\n\n'+pdfText.substring(0,3000)+'\n\nESTRAI:\n1. FORNITORE: chi emette il documento\n2. DESTINATARIO: chi riceve/paga\n3. DESTINAZIONE: dove va la merce\n4. Per OGNI articolo: code, desc, qty (numero intero), udm (pz, Rotoli, Conf, KG, CT), colli\nREGOLE: TRASCRIVI ESATTAMENTE, campo non trovato = "?"\nRispondi SOLO JSON:\n{"fornitore":"","destinatario":"","destinazione":"","articoli":[{"code":"","desc":"","qty":0,"udm":"","colli":0}]}';
+    
+    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:2000,temperature:0.05,
+        messages:[{role:'user',content:prompt}]})
+    });
+    var data=await resp.json();
+    if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
+    
+    var text=data.choices?.[0]?.message?.content||'';
+    addLog('Risposta ricevuta, elaboro...',1200);
+    var clean=text.replace(/```json|```/g,'').trim();
+    var jm=clean.match(/\{[\s\S]*\}/);
+    var parsed;try{parsed=JSON.parse(jm?jm[0]:clean);}catch(pe){addLog('\u26A0 Parsing fallito',1600);if(procEl)procEl.classList.remove('active');return;}
+    
+    var items=parsed.articoli||[];
+    var fornitore=parsed.fornitore||'';
+    var destinazione=parsed.destinazione||'';
+    var destinatario=parsed.destinatario||'';
+    var clienteFinale=destinazione||destinatario||'';
+    
+    items=items.map(function(it){
+      var q=parseInt(it.qty)||parseInt(it.colli)||0;
+      var udm=it.udm||'';if(udm)udm=udm.toLowerCase().replace('.','');
+      return{code:it.code||'',desc:(it.desc||'').replace(/\n/g,' ').trim(),qty:q,fornitore:fornitore,cliente:clienteFinale,udm:udm};
+    }).filter(function(it){return it.desc&&it.desc.length>2;});
+    
+    addLog('\u2705 '+items.length+' articoli trovati',1600);
+    setTimeout(function(){
+      if(procEl)procEl.classList.remove('active');
+      if(items.length>0)showConfirm(items,isUscita?'uscita':'entrata');
+      else showToast('Nessun articolo nel PDF');
+    },2200);
+  }catch(err){
+    addLog('\u274C '+err.message,1200);
+    setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);
+  }
+};
+
+// Override importArticoliDaPDF — supporta PDF reali
+var _b4ImportPDF=importArticoliDaPDF;
+importArticoliDaPDF=async function(){
+  var input=document.createElement('input');input.type='file';input.accept='.pdf,image/jpeg,image/png';
+  input.onchange=async function(e){
+    var file=e.target.files[0];if(!file)return;
+    var isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
+    
+    if(isPDF){
+      var procEl=document.getElementById('ai-proc-entrata');
+      var logEl=document.getElementById('ai-log-entrata');
+      if(procEl)procEl.classList.add('active');
+      if(logEl)logEl.innerHTML='';
+      var addLog=function(msg,delay){setTimeout(function(){if(logEl){var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);}},delay||0);};
+      
+      addLog('PDF: '+file.name,0);
+      var apiKey=localStorage.getItem('mag_apikey');
+      if(!apiKey){addLog('\u26A0 API mancante',400);if(procEl)procEl.classList.remove('active');return;}
+      
+      try{
+        addLog('Estraggo testo...',400);
+        var pdfText=await extractTextFromPDF(file);
+        if(!pdfText||pdfText.length<10){addLog('\u26A0 PDF vuoto',800);if(procEl)procEl.classList.remove('active');return;}
+        addLog('Invio AI ('+pdfText.length+' car.)...',800);
+        
+        var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+          method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+          body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:2000,temperature:0.05,
+            messages:[{role:'user',content:'OCR magazzino italiano. Testo PDF:\n\n'+pdfText.substring(0,3000)+'\n\nEstrai TUTTI i prodotti. JSON: [{"code":"","desc":"","qty":0,"fornitore":""}]'}]})
+        });
+        var data=await resp.json();
+        if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
+        
+        var text=data.choices?.[0]?.message?.content||'';
+        var clean=text.replace(/```json|```/g,'').trim();
+        var jm=clean.match(/\[[\s\S]*\]/);
+        var items=[];try{items=JSON.parse(jm?jm[0]:clean);}catch(pe){}
+        
+        if(items.length===0){addLog('\u26A0 Nessun articolo',1600);setTimeout(function(){if(procEl)procEl.classList.remove('active');},2500);return;}
+        
+        var nuovi=0,agg=0;
+        items.forEach(function(it){
+          if(!it.desc&&!it.code)return;
+          var ex=cercaArticolo(it.code||it.desc);
+          if(ex){if(it.qty>0){ex.qty+=parseInt(it.qty)||0;agg++;}}
+          else{
+            var code=it.code||('NEW-'+Date.now()+'-'+(nuovi+1));
+            var forn=it.fornitore||'';
+            if(forn&&!fornitori.find(function(f){return f.nome===forn;}))fornitori.push({nome:forn,email:'',logo:''});
+            inventario.push({id:nextId++,code:code,codeForn:'',desc:it.desc||code,cat:'Altro',fornitore:forn,cliente:'',qty:parseInt(it.qty)||0,min:5,preOrdine:7,udm:'cartoni',pezziPerCartone:0,_incompleto:true});
+            nuovi++;
+          }
+        });
+        saveData();updateStats();popolaDatalistUscita();
+        addLog('\u2705 '+nuovi+' nuovi + '+agg+' agg.',1600);
+        setTimeout(function(){if(procEl)procEl.classList.remove('active');showToast('\u2705 '+nuovi+' registrati');showView('inventario');},2500);
+      }catch(err){
+        addLog('\u274C '+err.message,1200);
+        setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);
+      }
+    }else{
+      // Immagine — usa il flusso originale del blocco 2
+      _b4ImportPDF.call(this);
+    }
+  };input.click();
+};
+
 console.log('BLOCK4 OK');
 }catch(e){console.error('BLOCK4 error:',e);}
 </script>

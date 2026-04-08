@@ -1,4 +1,4 @@
-const CACHE_NAME = 'magazzai-v26';
+const CACHE_NAME = 'magazzai-v27';
 const urlsToCache = ['./', './index.html', './style.css', './app.js', './manifest.json'];
 self.addEventListener('install', function(event) { self.skipWaiting(); event.waitUntil(caches.open(CACHE_NAME).then(function(cache) { return cache.addAll(urlsToCache); })); });
 self.addEventListener('fetch', function(event) { event.respondWith(fetch(event.request).then(function(response) { if (response && response.status === 200) { var r = response.clone(); caches.open(CACHE_NAME).then(function(cache) { cache.put(event.request, r); }); } return response; }).catch(function() { return caches.match(event.request); })); });
