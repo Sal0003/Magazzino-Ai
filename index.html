@@ -352,16 +352,6 @@ findArticolo=function(code,desc,type){
   return null;
 };
 
-// isArticoloIncompleto — calcolato dai campi reali
-function isArticoloIncompleto(a){
-  if(!a.fornitore||a.fornitore==='')return true;
-  if(!a.udm||a.udm===''||a.udm==='cartoni'&&a._incompleto)return true;
-  if(a.cat==='Altro'&&a._incompleto)return true;
-  if(!a.min||a.min<=0)return true;
-  if(a._incompleto)return true;
-  return false;
-}
-
 // Nuove funzioni
 function stampaFornitore(forn){var articoli=inventario.filter(function(a){return a.fornitore===forn;});if(articoli.length===0){showToast('Nessun articolo');return;}var oggi=new Date().toLocaleDateString('it-IT');var righe=articoli.map(function(a){return'<tr><td style="padding:10px 12px;border-bottom:1px solid #eee">'+escapeHtml(a.code)+'</td><td style="padding:10px 12px;border-bottom:1px solid #eee">'+escapeHtml(a.desc)+'</td><td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;font-weight:bold">'+a.qty+'</td><td style="padding:10px 12px;border-bottom:1px solid #eee">'+(a.udm||'cartoni')+'</td></tr>';}).join('');var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+escapeHtml(forn)+'</title><style>body{font-family:Arial,sans-serif;margin:40px}table{width:100%;border-collapse:collapse}th{background:#f5f5f5;padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;border-bottom:2px solid #ddd}</style></head><body><h1>'+escapeHtml(forn)+'</h1><p style="color:#666">'+oggi+' - '+articoli.length+' articoli</p><table><thead><tr><th>Codice</th><th>Articolo</th><th>Giac.</th><th>UdM</th></tr></thead><tbody>'+righe+'</tbody></table></body></html>';var w=window.open('','_blank');if(w){w.document.write(html);w.document.close();setTimeout(function(){w.print();},300);}}
 function eliminaFornitore(forn){if(!confirm('Eliminare "'+forn+'"? Gli articoli verranno slegati.'))return;fornitori=fornitori.filter(function(f){return f.nome!==forn;});inventario.forEach(function(a){if(a.fornitore===forn)a.fornitore='';});if(ordiniFornitore[forn])delete ordiniFornitore[forn];saveData();renderFornitori();renderInventario();updateStats();popolaDatalistUscita();showToast('Fornitore eliminato');}
@@ -371,79 +361,6 @@ function chiudiAltroMenu(){var s=document.getElementById('altro-sheet');if(s)s.s
 
 // renderFornitori con stampa + cestino
 renderFornitori=function(){var container=document.getElementById('fornitori-panels');var allFornitori=[...new Set(inventario.map(function(a){return a.fornitore}).filter(Boolean))];var colors=['var(--accent)','var(--blue)','var(--green)','var(--warn)','#c084fc','#fb923c'];container.innerHTML=allFornitori.map(function(forn,fi){var articoli=inventario.filter(function(a){return a.fornitore===forn}).sort(function(x,y){var cx=(x.cat||'').toLowerCase(),cy=(y.cat||'').toLowerCase();if(cx!==cy)return cx.localeCompare(cy);return(x.desc||'').toLowerCase().localeCompare((y.desc||'').toLowerCase());});var totQty=articoli.reduce(function(s,a){return s+a.qty},0);var critici=articoli.filter(function(a){return a.qty<=a.min}).length;var color=colors[fi%colors.length];return'<div class="group-panel" id="gp-forn-'+fi+'"><div class="group-panel-header" onclick="togglePanel(\'forn-'+fi+'\')"><div class="group-panel-title">'+gpAvatarHtml(forn,color)+' '+forn+'</div><div class="group-panel-chips"><span class="gp-chip">'+articoli.length+' art.</span><span class="gp-chip">'+totQty+' ct.</span>'+(critici>0?'<span class="gp-chip gp-chip-danger" onclick="scrollToCritici(event,\'forn-'+fi+'\')">⚠ '+critici+'</span>':'<span class="gp-chip gp-chip-ok">✓</span>')+'<span class="gp-chip gp-chip-settings" onclick="event.stopPropagation();stampaFornitore(\''+forn+'\')">🖨️</span><span class="gp-chip gp-chip-settings" onclick="event.stopPropagation();eliminaFornitore(\''+forn+'\')" style="color:var(--danger)!important">🗑️</span><span class="gp-chip gp-chip-settings" onclick="event.stopPropagation();openFornModal(\''+forn+'\',\''+color+'\')">⚙</span></div><span class="gp-chevron">›</span></div><div class="group-panel-body open" id="forn-'+fi+'">'+articoli.map(function(a,ai){return artCardCompact(a,'forn-'+fi+'-art-'+ai)}).join('')+'</div></div>';}).join('')||'<div class="empty-state"><div class="empty-icon">🏭</div><p>Nessun fornitore.</p></div>';};
-
-// quickEdit override — carica/salva noteArt
-var _origQuickEdit=quickEdit;
-quickEdit=function(artId){
-  _origQuickEdit(artId);
-  // Dopo che il modal si apre, popola note
-  setTimeout(function(){
-    var art=inventario.find(function(a){return a.id===artId});
-    if(!art)return;
-    var noteEl=document.getElementById('new-note-art');
-    if(noteEl)noteEl.value=art.noteArt||'';
-  },50);
-};
-// Override saveEdit per salvare noteArt
-var _origSaveEdit=saveEdit;
-saveEdit=function(){
-  var noteEl=document.getElementById('new-note-art');
-  var noteVal=noteEl?noteEl.value.trim():'';
-  var curEditId=editingId;
-  _origSaveEdit();
-  // Dopo saveEdit, aggiorna noteArt sull'articolo
-  if(curEditId!==undefined&&curEditId!==null){
-    var art=inventario.find(function(a){return a.id===curEditId});
-    if(art){
-      art.noteArt=noteVal;
-      if(art.fornitore&&art.udm&&art.min>0)delete art._incompleto;
-      saveData();
-    }
-  }
-};
-
-// Badge DA COMPLETARE + 📝 Note — via DOM post-render
-(function(){
-  function addBadges(){
-    var cards=document.querySelectorAll('[onclick*="quickEdit"],[onclick*="showArtMenu"]');
-    cards.forEach(function(card){
-      if(card.dataset.badged)return;
-      card.dataset.badged='1';
-      var onclick=card.getAttribute('onclick')||'';
-      var match=onclick.match(/(?:quickEdit|showArtMenu)\s*\(\s*(?:event\s*,\s*)?(\d+)/);
-      if(!match)return;
-      var artId=parseInt(match[1]);
-      var art=inventario.find(function(a){return a.id===artId});
-      if(!art)return;
-      var hasInc=isArticoloIncompleto(art);
-      var hasNote=art.noteArt&&art.noteArt.trim();
-      if(!hasInc&&!hasNote)return;
-      var container=document.createElement('div');
-      container.style.cssText='display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;padding:2px 0 0';
-      if(hasInc){
-        var b=document.createElement('span');
-        b.style.cssText='font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(240,62,62,.15);color:#f03e3e;font-weight:600';
-        b.textContent='⚠ DA COMPLETARE';
-        container.appendChild(b);
-      }
-      if(hasNote){
-        var n=document.createElement('span');
-        n.style.cssText='font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(144,205,244,.15);color:#90cdf4';
-        n.textContent='📝 Note';
-        n.title=art.noteArt;
-        container.appendChild(n);
-      }
-      card.appendChild(container);
-    });
-  }
-  var _riOrig2=renderInventario;
-  renderInventario=function(){_riOrig2.apply(this,arguments);setTimeout(addBadges,80);};
-  var _rfOrig2=renderFornitori;
-  renderFornitori=function(){_rfOrig2.apply(this,arguments);setTimeout(addBadges,80);};
-  var _rcOrig2=renderClienti;
-  renderClienti=function(){_rcOrig2.apply(this,arguments);setTimeout(addBadges,80);};
-  setTimeout(addBadges,600);
-})();
 
 // movItem con UdM reale
 movItem=function(m){var isIn=m.type==='entrata';var t=new Date(m.ts);var timeStr=t.toLocaleDateString('it-IT')+' '+t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});var unitLabel=m.unitType==='pezzi'?'pezzi':(m.udm||'');var udmReale=(m.udm||'cartoni').toUpperCase();var unitBadge=m.unitType==='pezzi'?'<span style="font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;background:rgba(255,140,66,.15);color:#ff8c42">PEZZI</span>':'<span style="font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;background:rgba(79,140,255,.15);color:#4f8cff">'+udmReale+'</span>';var sfusiNote=m.pezziSfusi>0?' <span style="font-size:11px;color:#ff8c42">+ '+m.pezziSfusi+' pz sfusi</span>':'';return'<div class="mov-item"><div class="mov-icon">'+(isIn?'📥':'📤')+'</div><div class="mov-info"><div class="mov-title">'+m.desc+'</div><div class="mov-sub">'+m.code+' · '+(isIn?'Carico':'Scarico')+unitBadge+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0"><div class="mov-qty '+(isIn?'in':'out')+'">'+(isIn?'+':'-')+m.qty+' <span style="font-size:13px">'+unitLabel+'</span></div>'+sfusiNote+'<div style="font-size:12px;color:'+(isIn?'var(--green)':'var(--danger)')+';font-family:var(--fm);text-transform:uppercase;letter-spacing:1px;margin-top:1px">'+(isIn?'entrata':'uscita')+'</div></div><div class="mov-time">'+timeStr+'</div></div>';};
@@ -684,6 +601,89 @@ applyConfirm=function(type){
   saveData();popolaDatalistUscita();
 };
 }catch(e){console.error('BLOCK3 error:',e);}
+</script>
+
+<!-- BLOCCO 4: Badge + Note (isolato) -->
+<script>
+try{
+function isArticoloIncompleto(a){
+  if(!a.fornitore||a.fornitore==='')return true;
+  if(!a.min||a.min<=0)return true;
+  return false;
+}
+
+// quickEdit: carica noteArt nel campo
+var _b4QuickEdit=quickEdit;
+quickEdit=function(id){
+  _b4QuickEdit(id);
+  setTimeout(function(){
+    var art=inventario.find(function(a){return a.id===id});
+    if(!art)return;
+    var noteEl=document.getElementById('new-note-art');
+    if(noteEl)noteEl.value=art.noteArt||'';
+  },60);
+};
+
+// saveNewArticle: salva noteArt
+var _b4Save=saveNewArticle;
+saveNewArticle=function(){
+  var noteEl=document.getElementById('new-note-art');
+  var noteVal=noteEl?noteEl.value.trim():'';
+  var editId=parseInt(document.getElementById('modal-overlay').dataset.editId)||0;
+  _b4Save();
+  var art;
+  if(editId){art=inventario.find(function(a){return a.id===editId});}
+  else{art=inventario[inventario.length-1];}
+  if(art){
+    art.noteArt=noteVal;
+    if(art.fornitore&&art.min>0)delete art._incompleto;
+    saveData();
+  }
+  if(noteEl)noteEl.value='';
+};
+
+// Badge DOM post-render
+function addArtBadges(){
+  var cards=document.querySelectorAll('[onclick*="quickEdit"],[onclick*="showArtMenu"]');
+  cards.forEach(function(card){
+    if(card.dataset.badged)return;
+    card.dataset.badged='1';
+    var onclick=card.getAttribute('onclick')||'';
+    var match=onclick.match(/(?:quickEdit|showArtMenu)\s*\(\s*(?:event\s*,\s*)?(\d+)/);
+    if(!match)return;
+    var artId=parseInt(match[1]);
+    var art=inventario.find(function(a){return a.id===artId});
+    if(!art)return;
+    var hasInc=isArticoloIncompleto(art);
+    var hasNote=art.noteArt&&art.noteArt.trim();
+    if(!hasInc&&!hasNote)return;
+    var container=document.createElement('div');
+    container.style.cssText='display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;padding:2px 0 0';
+    if(hasInc){
+      var b=document.createElement('span');
+      b.style.cssText='font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(240,62,62,.15);color:#f03e3e;font-weight:600';
+      b.textContent='\u26A0 DA COMPLETARE';
+      container.appendChild(b);
+    }
+    if(hasNote){
+      var n=document.createElement('span');
+      n.style.cssText='font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(144,205,244,.15);color:#90cdf4';
+      n.textContent='\uD83D\uDCDD Note';
+      n.title=art.noteArt;
+      container.appendChild(n);
+    }
+    card.appendChild(container);
+  });
+}
+var _b4ri=renderInventario;
+renderInventario=function(){_b4ri.apply(this,arguments);setTimeout(addArtBadges,100);};
+var _b4rf=renderFornitori;
+renderFornitori=function(){_b4rf.apply(this,arguments);setTimeout(addArtBadges,100);};
+var _b4rc=renderClienti;
+renderClienti=function(){_b4rc.apply(this,arguments);setTimeout(addArtBadges,100);};
+setTimeout(addArtBadges,800);
+console.log('BLOCK4 OK');
+}catch(e){console.error('BLOCK4 error:',e);}
 </script>
 </body>
 </html>
