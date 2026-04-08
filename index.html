@@ -402,23 +402,48 @@ saveEdit=function(){
   }
 };
 
-// artCardCompact override — badge 📝 Note + DA COMPLETARE calcolato
-var _origArtCard=artCardCompact;
-artCardCompact=function(a,cardId){
-  var html=_origArtCard(a,cardId);
-  var badges='';
-  if(isArticoloIncompleto(a))badges+='<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(240,62,62,.12);color:#f03e3e;margin-left:4px">DA COMPLETARE</span>';
-  if(a.noteArt&&a.noteArt.trim())badges+='<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(144,205,244,.12);color:#90cdf4;margin-left:4px" title="'+escapeHtml(a.noteArt)+'">📝 Note</span>';
-  if(badges){
-    // Inserisci badge dopo la descrizione
-    var descEnd=html.indexOf('</div>');
-    if(descEnd>0){
-      var secondDiv=html.indexOf('</div>',descEnd+6);
-      if(secondDiv>0)html=html.substring(0,secondDiv)+badges+html.substring(secondDiv);
-    }
+// Badge DA COMPLETARE + 📝 Note — via DOM post-render
+(function(){
+  function addBadges(){
+    var cards=document.querySelectorAll('[onclick*="quickEdit"],[onclick*="showArtMenu"]');
+    cards.forEach(function(card){
+      if(card.dataset.badged)return;
+      card.dataset.badged='1';
+      var onclick=card.getAttribute('onclick')||'';
+      var match=onclick.match(/(?:quickEdit|showArtMenu)\s*\(\s*(?:event\s*,\s*)?(\d+)/);
+      if(!match)return;
+      var artId=parseInt(match[1]);
+      var art=inventario.find(function(a){return a.id===artId});
+      if(!art)return;
+      var hasInc=isArticoloIncompleto(art);
+      var hasNote=art.noteArt&&art.noteArt.trim();
+      if(!hasInc&&!hasNote)return;
+      var container=document.createElement('div');
+      container.style.cssText='display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;padding:2px 0 0';
+      if(hasInc){
+        var b=document.createElement('span');
+        b.style.cssText='font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(240,62,62,.15);color:#f03e3e;font-weight:600';
+        b.textContent='⚠ DA COMPLETARE';
+        container.appendChild(b);
+      }
+      if(hasNote){
+        var n=document.createElement('span');
+        n.style.cssText='font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(144,205,244,.15);color:#90cdf4';
+        n.textContent='📝 Note';
+        n.title=art.noteArt;
+        container.appendChild(n);
+      }
+      card.appendChild(container);
+    });
   }
-  return html;
-};
+  var _riOrig2=renderInventario;
+  renderInventario=function(){_riOrig2.apply(this,arguments);setTimeout(addBadges,80);};
+  var _rfOrig2=renderFornitori;
+  renderFornitori=function(){_rfOrig2.apply(this,arguments);setTimeout(addBadges,80);};
+  var _rcOrig2=renderClienti;
+  renderClienti=function(){_rcOrig2.apply(this,arguments);setTimeout(addBadges,80);};
+  setTimeout(addBadges,600);
+})();
 
 // movItem con UdM reale
 movItem=function(m){var isIn=m.type==='entrata';var t=new Date(m.ts);var timeStr=t.toLocaleDateString('it-IT')+' '+t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});var unitLabel=m.unitType==='pezzi'?'pezzi':(m.udm||'');var udmReale=(m.udm||'cartoni').toUpperCase();var unitBadge=m.unitType==='pezzi'?'<span style="font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;background:rgba(255,140,66,.15);color:#ff8c42">PEZZI</span>':'<span style="font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;background:rgba(79,140,255,.15);color:#4f8cff">'+udmReale+'</span>';var sfusiNote=m.pezziSfusi>0?' <span style="font-size:11px;color:#ff8c42">+ '+m.pezziSfusi+' pz sfusi</span>':'';return'<div class="mov-item"><div class="mov-icon">'+(isIn?'📥':'📤')+'</div><div class="mov-info"><div class="mov-title">'+m.desc+'</div><div class="mov-sub">'+m.code+' · '+(isIn?'Carico':'Scarico')+unitBadge+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0"><div class="mov-qty '+(isIn?'in':'out')+'">'+(isIn?'+':'-')+m.qty+' <span style="font-size:13px">'+unitLabel+'</span></div>'+sfusiNote+'<div style="font-size:12px;color:'+(isIn?'var(--green)':'var(--danger)')+';font-family:var(--fm);text-transform:uppercase;letter-spacing:1px;margin-top:1px">'+(isIn?'entrata':'uscita')+'</div></div><div class="mov-time">'+timeStr+'</div></div>';};
