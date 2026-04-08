@@ -547,11 +547,11 @@ showConfirm=function(items,type){
   var tbody=document.getElementById('confirm-tbody-'+type);
   panel.classList.add('active');
   // Banner info cliente/fornitore se trovato
-  var clienteTrovato=items.length>0?items[0].cliente||'':'';
-  var fornitoreTrovato=items.length>0?items[0].fornitore||'':'';
+  var clientiUnici=[...new Set(items.map(function(it){return it.cliente}).filter(Boolean))];
+  var fornitoriUnici=[...new Set(items.map(function(it){return it.fornitore}).filter(Boolean))];
   var banner='';
-  if(type==='uscita'&&clienteTrovato)banner='<div style="padding:10px 14px;margin-bottom:12px;background:rgba(144,205,244,.08);border:1px solid rgba(144,205,244,.3);border-radius:8px;font-size:13px;color:#90cdf4">👤 Cliente: <strong>'+escapeHtml(clienteTrovato)+'</strong></div>';
-  if(type==='entrata'&&fornitoreTrovato)banner='<div style="padding:10px 14px;margin-bottom:12px;background:rgba(62,207,110,.08);border:1px solid rgba(62,207,110,.3);border-radius:8px;font-size:13px;color:#3ecf6e">🏭 Fornitore: <strong>'+escapeHtml(fornitoreTrovato)+'</strong></div>';
+  if(type==='uscita'&&clientiUnici.length>0)banner=clientiUnici.map(function(c){return'<div style="padding:8px 14px;margin-bottom:8px;background:rgba(144,205,244,.08);border:1px solid rgba(144,205,244,.3);border-radius:8px;font-size:13px;color:#90cdf4">\uD83D\uDC64 Cliente: <strong>'+escapeHtml(c)+'</strong></div>';}).join('');
+  if(type==='entrata'&&fornitoriUnici.length>0)banner=fornitoriUnici.map(function(f){return'<div style="padding:8px 14px;margin-bottom:8px;background:rgba(62,207,110,.08);border:1px solid rgba(62,207,110,.3);border-radius:8px;font-size:13px;color:#3ecf6e">\uD83C\uDFED Fornitore: <strong>'+escapeHtml(f)+'</strong></div>';}).join('');
   var bannerEl=panel.querySelector('.confirm-banner');
   if(!bannerEl){bannerEl=document.createElement('div');bannerEl.className='confirm-banner';panel.querySelector('.confirm-title').after(bannerEl);}
   bannerEl.innerHTML=banner;
@@ -562,8 +562,9 @@ showConfirm=function(items,type){
     var udmBolla=it.udm||'';
     var udmArt=existing?(existing.udm||'cartoni'):'—';
     var udmLabel=udmBolla||udmArt;
-    if(type==='entrata')return'<tr><td>'+escapeHtml(it.desc)+'</td><td style="color:var(--tx2)">'+escapeHtml(it.code)+'</td><td><input class="qty-input" id="pqty-'+i+'" value="'+it.qty+'" type="number" min="0" style="width:60px;padding:5px 8px;text-align:center;background:var(--s3);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:13px"> <span style="font-size:11px;color:var(--tx2)">'+udmLabel+'</span></td><td>'+(isNew?'<span style="color:var(--warn)">Nuovo</span>':'<span style="color:var(--green)">✓ '+currentQty+' '+udmArt+'</span>')+'</td></tr>';
-    return'<tr><td>'+escapeHtml(it.desc)+'</td><td style="color:var(--tx2)">'+escapeHtml(it.code)+'</td><td><input class="qty-input" id="pqty-'+i+'" value="'+it.qty+'" type="number" min="0" style="width:60px;padding:5px 8px;text-align:center;background:var(--s3);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:13px"> <span style="font-size:11px;color:var(--tx2)">'+udmLabel+'</span></td><td><span class="'+(currentQty<it.qty?'qty-danger':'qty-ok')+'">'+currentQty+' '+udmArt+'</span></td></tr>';
+    var clienteTag=(clientiUnici.length>1&&it.cliente)?'<div style="font-size:10px;color:#90cdf4;margin-top:2px">\uD83D\uDC64 '+escapeHtml(it.cliente)+'</div>':'';
+    if(type==='entrata')return'<tr><td><div>'+escapeHtml(it.desc)+'</div>'+clienteTag+'<div style="font-size:10px;color:var(--tx2)">'+escapeHtml(it.code)+'</div></td><td style="text-align:center;white-space:nowrap"><input class="qty-input" id="pqty-'+i+'" value="'+it.qty+'" type="number" min="0" style="width:55px;padding:5px;text-align:center;background:var(--s3);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:14px;font-weight:700"><div style="font-size:10px;color:var(--tx2);margin-top:2px">'+udmLabel+'</div></td><td style="text-align:right">'+(isNew?'<span style="color:var(--warn);font-size:11px">Nuovo</span>':'<span style="color:var(--green);font-size:11px">\u2713 '+currentQty+' '+udmArt+'</span>')+'</td></tr>';
+    return'<tr><td><div>'+escapeHtml(it.desc)+'</div>'+clienteTag+'<div style="font-size:10px;color:var(--tx2)">'+escapeHtml(it.code)+'</div></td><td style="text-align:center;white-space:nowrap"><input class="qty-input" id="pqty-'+i+'" value="'+it.qty+'" type="number" min="0" style="width:55px;padding:5px;text-align:center;background:var(--s3);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:14px;font-weight:700"><div style="font-size:10px;color:var(--tx2);margin-top:2px">'+udmLabel+'</div></td><td style="text-align:right"><span style="font-size:12px;color:'+(currentQty<it.qty?'var(--danger)':'var(--green)')+'">'+currentQty+' '+udmArt+'</span></td></tr>';
   }).join('');
 };
 
@@ -691,17 +692,26 @@ async function extractTextFromPDF(file){
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   var arrayBuffer=await file.arrayBuffer();
   var pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
-  var allText='';
+  var pages=[];
   for(var i=1;i<=pdf.numPages;i++){
     var page=await pdf.getPage(i);
     var content=await page.getTextContent();
     var pageText=content.items.map(function(item){return item.str;}).join(' ');
-    allText+=pageText+'\n';
+    pages.push(pageText);
   }
-  return allText.trim();
+  return pages;
 }
 
-// Override processFile — supporta PDF reali
+function parsePdfQty(val){
+  if(typeof val==='number')return val;
+  var s=String(val||'').trim();
+  s=s.replace(/\./g,'').replace(',','.');
+  return parseInt(s)||0;
+}
+
+var PDF_PROMPT='Sei un sistema PRECISO per bolle/DDT italiani.\nQuesto PDF contiene UNO O PIU\' documenti di trasporto (DDT).\n\nPer OGNI DDT separato nel testo, estrai:\n- fornitore: chi EMETTE il documento (intestazione in alto)\n- destinazione_nome: solo il NOME dell\'attivita/locale nella sezione "Destinazione" (es. "Bar Sant\'Ambrogio", NON l\'indirizzo)\n- destinatario_nome: solo il NOME dell\'azienda nella sezione "Destinatario" (es. "Pokito di Daniele...")\n- articoli con: code, desc, qty (NUMERO INTERO — 1.000 = mille), udm (ESATTA: Conf, Coppia, Rotoli, pz, kg, Colli)\n\nATTENZIONE NUMERI: In italiano il PUNTO e\' separatore migliaia. 1.000 = mille, NON uno.\n\nRispondi SOLO con JSON array di DDT:\n[{"fornitore":"","destinazione_nome":"","destinatario_nome":"","articoli":[{"code":"","desc":"","qty":0,"udm":""}]}]';
+
+// Override processFile — PDF multi-DDT
 var _b4ProcessFile=processFile;
 processFile=async function(file,type){
   var isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
@@ -720,16 +730,15 @@ processFile=async function(file,type){
   
   try{
     addLog('Estraggo testo dal PDF...',400);
-    var pdfText=await extractTextFromPDF(file);
+    var pages=await extractTextFromPDF(file);
+    var pdfText=pages.join('\n--- NUOVA PAGINA ---\n');
     if(!pdfText||pdfText.length<10){addLog('\u26A0 PDF vuoto o non leggibile',800);if(procEl)procEl.classList.remove('active');return;}
-    addLog('Testo estratto ('+pdfText.length+' car.), invio AI...',800);
-    
-    var prompt='Sei un sistema OCR PRECISO per bolle, fatture e DDT italiani.\nQuesto è il TESTO ESTRATTO da un PDF:\n\n'+pdfText.substring(0,3000)+'\n\nESTRAI:\n1. FORNITORE: chi emette il documento\n2. DESTINATARIO: chi riceve/paga\n3. DESTINAZIONE: dove va la merce\n4. Per OGNI articolo: code, desc, qty (numero intero), udm (pz, Rotoli, Conf, KG, CT), colli\nREGOLE: TRASCRIVI ESATTAMENTE, campo non trovato = "?"\nRispondi SOLO JSON:\n{"fornitore":"","destinatario":"","destinazione":"","articoli":[{"code":"","desc":"","qty":0,"udm":"","colli":0}]}';
+    addLog(pages.length+' pagine, '+pdfText.length+' car. Invio AI...',800);
     
     var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-      body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:2000,temperature:0.05,
-        messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:4000,temperature:0.05,
+        messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+pdfText.substring(0,6000)}]})
     });
     var data=await resp.json();
     if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
@@ -737,25 +746,30 @@ processFile=async function(file,type){
     var text=data.choices?.[0]?.message?.content||'';
     addLog('Risposta ricevuta, elaboro...',1200);
     var clean=text.replace(/```json|```/g,'').trim();
-    var jm=clean.match(/\{[\s\S]*\}/);
-    var parsed;try{parsed=JSON.parse(jm?jm[0]:clean);}catch(pe){addLog('\u26A0 Parsing fallito',1600);if(procEl)procEl.classList.remove('active');return;}
+    var jm=clean.match(/\[[\s\S]*\]/);
+    var ddtList;try{ddtList=JSON.parse(jm?jm[0]:clean);}catch(pe){
+      var jm2=clean.match(/\{[\s\S]*\}/);
+      try{ddtList=[JSON.parse(jm2?jm2[0]:clean)];}catch(pe2){addLog('\u26A0 Parsing fallito',1600);if(procEl)procEl.classList.remove('active');return;}
+    }
+    if(!Array.isArray(ddtList))ddtList=[ddtList];
     
-    var items=parsed.articoli||[];
-    var fornitore=parsed.fornitore||'';
-    var destinazione=parsed.destinazione||'';
-    var destinatario=parsed.destinatario||'';
-    var clienteFinale=destinazione||destinatario||'';
+    var allItems=[];
+    ddtList.forEach(function(ddt){
+      var fornitore=ddt.fornitore||'';
+      var cliente=ddt.destinazione_nome||ddt.destinazione||ddt.destinatario_nome||'';
+      var articoli=ddt.articoli||[];
+      articoli.forEach(function(it){
+        var q=parsePdfQty(it.qty)||parsePdfQty(it.colli)||0;
+        var udm=it.udm||'';if(udm)udm=udm.toLowerCase().replace('.','');
+        allItems.push({code:it.code||'',desc:(it.desc||'').replace(/\n/g,' ').trim(),qty:q,fornitore:fornitore,cliente:cliente,udm:udm});
+      });
+    });
+    allItems=allItems.filter(function(it){return it.desc&&it.desc.length>2;});
     
-    items=items.map(function(it){
-      var q=parseInt(it.qty)||parseInt(it.colli)||0;
-      var udm=it.udm||'';if(udm)udm=udm.toLowerCase().replace('.','');
-      return{code:it.code||'',desc:(it.desc||'').replace(/\n/g,' ').trim(),qty:q,fornitore:fornitore,cliente:clienteFinale,udm:udm};
-    }).filter(function(it){return it.desc&&it.desc.length>2;});
-    
-    addLog('\u2705 '+items.length+' articoli trovati',1600);
+    addLog('\u2705 '+ddtList.length+' DDT, '+allItems.length+' articoli',1600);
     setTimeout(function(){
       if(procEl)procEl.classList.remove('active');
-      if(items.length>0)showConfirm(items,isUscita?'uscita':'entrata');
+      if(allItems.length>0)showConfirm(allItems,isUscita?'uscita':'entrata');
       else showToast('Nessun articolo nel PDF');
     },2200);
   }catch(err){
@@ -764,7 +778,7 @@ processFile=async function(file,type){
   }
 };
 
-// Override importArticoliDaPDF — supporta PDF reali
+// Override importArticoliDaPDF — PDF multi-DDT
 var _b4ImportPDF=importArticoliDaPDF;
 importArticoliDaPDF=async function(){
   var input=document.createElement('input');input.type='file';input.accept='.pdf,image/jpeg,image/png';
@@ -785,14 +799,15 @@ importArticoliDaPDF=async function(){
       
       try{
         addLog('Estraggo testo...',400);
-        var pdfText=await extractTextFromPDF(file);
+        var pages=await extractTextFromPDF(file);
+        var pdfText=pages.join('\n--- NUOVA PAGINA ---\n');
         if(!pdfText||pdfText.length<10){addLog('\u26A0 PDF vuoto',800);if(procEl)procEl.classList.remove('active');return;}
-        addLog('Invio AI ('+pdfText.length+' car.)...',800);
+        addLog(pages.length+' pagine. Invio AI...',800);
         
         var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-          body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:2000,temperature:0.05,
-            messages:[{role:'user',content:'OCR magazzino italiano. Testo PDF:\n\n'+pdfText.substring(0,3000)+'\n\nEstrai TUTTI i prodotti. JSON: [{"code":"","desc":"","qty":0,"fornitore":""}]'}]})
+          body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:4000,temperature:0.05,
+            messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+pdfText.substring(0,6000)}]})
         });
         var data=await resp.json();
         if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
@@ -800,22 +815,27 @@ importArticoliDaPDF=async function(){
         var text=data.choices?.[0]?.message?.content||'';
         var clean=text.replace(/```json|```/g,'').trim();
         var jm=clean.match(/\[[\s\S]*\]/);
-        var items=[];try{items=JSON.parse(jm?jm[0]:clean);}catch(pe){}
-        
-        if(items.length===0){addLog('\u26A0 Nessun articolo',1600);setTimeout(function(){if(procEl)procEl.classList.remove('active');},2500);return;}
+        var ddtList;try{ddtList=JSON.parse(jm?jm[0]:clean);}catch(pe){
+          var jm2=clean.match(/\{[\s\S]*\}/);
+          try{ddtList=[JSON.parse(jm2?jm2[0]:clean)];}catch(pe2){ddtList=[];}
+        }
+        if(!Array.isArray(ddtList))ddtList=[ddtList];
         
         var nuovi=0,agg=0;
-        items.forEach(function(it){
-          if(!it.desc&&!it.code)return;
-          var ex=cercaArticolo(it.code||it.desc);
-          if(ex){if(it.qty>0){ex.qty+=parseInt(it.qty)||0;agg++;}}
-          else{
-            var code=it.code||('NEW-'+Date.now()+'-'+(nuovi+1));
-            var forn=it.fornitore||'';
-            if(forn&&!fornitori.find(function(f){return f.nome===forn;}))fornitori.push({nome:forn,email:'',logo:''});
-            inventario.push({id:nextId++,code:code,codeForn:'',desc:it.desc||code,cat:'Altro',fornitore:forn,cliente:'',qty:parseInt(it.qty)||0,min:5,preOrdine:7,udm:'cartoni',pezziPerCartone:0,_incompleto:true});
-            nuovi++;
-          }
+        ddtList.forEach(function(ddt){
+          var forn=ddt.fornitore||'';
+          (ddt.articoli||[]).forEach(function(it){
+            if(!it.desc&&!it.code)return;
+            var q=parsePdfQty(it.qty);
+            var ex=cercaArticolo(it.code||it.desc);
+            if(ex){if(q>0){ex.qty+=q;agg++;}}
+            else{
+              var code=it.code||('NEW-'+Date.now()+'-'+(nuovi+1));
+              if(forn&&!fornitori.find(function(f){return f.nome===forn;}))fornitori.push({nome:forn,email:'',logo:''});
+              inventario.push({id:nextId++,code:code,codeForn:'',desc:it.desc||code,cat:'Altro',fornitore:forn,cliente:'',qty:q,min:5,preOrdine:7,udm:(it.udm||'cartoni').toLowerCase().replace('.',''),pezziPerCartone:0,_incompleto:true});
+              nuovi++;
+            }
+          });
         });
         saveData();updateStats();popolaDatalistUscita();
         addLog('\u2705 '+nuovi+' nuovi + '+agg+' agg.',1600);
@@ -825,7 +845,6 @@ importArticoliDaPDF=async function(){
         setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);
       }
     }else{
-      // Immagine — usa il flusso originale del blocco 2
       _b4ImportPDF.call(this);
     }
   };input.click();
