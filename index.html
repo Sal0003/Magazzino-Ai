@@ -92,7 +92,7 @@
     <div class="upload-card"><h3>📋 Importa lista articoli</h3><p>Carica un PDF o foto con lista prodotti per registrarli tutti.</p><div style="margin-top:12px"><button class="btn btn-primary" style="width:100%" onclick="importArticoliDaPDF()">📋 Importa da documento</button><div style="font-size:11px;color:var(--tx2);margin-top:8px;text-align:center">Articoli nuovi saranno segnati "Da completare"</div></div></div></div></div></div>
   </div>
   <div class="ai-processing" id="ai-proc-entrata"><div class="ai-header"><div class="ai-dot"></div>AI in elaborazione...</div><div class="ai-log" id="ai-log-entrata"></div></div>
-  <div class="confirm-panel" id="confirm-entrata"><div class="confirm-title">✓ Articoli rilevati — Conferma carico</div><table class="confirm-table"><thead><tr><th>Articolo</th><th>Codice</th><th>Qtà rilevata</th><th>Azione</th></tr></thead><tbody id="confirm-tbody-entrata"></tbody></table><div class="confirm-actions"><button class="btn btn-secondary" onclick="cancelConfirm('entrata')">Annulla</button><button class="btn btn-primary" onclick="applyConfirm('entrata')">✓ Conferma e aggiorna inventario</button></div></div>
+  <div class="confirm-panel" id="confirm-entrata"><div class="confirm-title">✓ Articoli rilevati — Conferma carico</div><table class="confirm-table" style="width:100%"><thead><tr><th style="text-align:left">ARTICOLO</th><th style="text-align:center;width:80px">QTÀ</th><th style="text-align:right;width:90px">GIAC.</th></tr></thead><tbody id="confirm-tbody-entrata"></tbody></table><div class="confirm-actions"><button class="btn btn-secondary" onclick="cancelConfirm('entrata')">Annulla</button><button class="btn btn-primary" onclick="applyConfirm('entrata')">✓ Conferma e aggiorna inventario</button></div></div>
 </div>
 
 <div class="view" id="view-uscita">
@@ -102,7 +102,7 @@
     <div class="upload-card"><h3>✏️ Scarico manuale</h3><p>Inserisci direttamente codice, quantità e cliente.</p><div style="margin-top:12px"><div class="form-row"><div class="form-label">Codice articolo</div><input class="form-input" id="man-uscita-art" placeholder="es. PIATTI-23-BL" list="man-uscita-art-list" oninput="suggerisciUscita()"><datalist id="man-uscita-art-list"></datalist></div><div class="form-row"><div class="form-label">Descrizione articolo</div><input class="form-input" id="man-uscita-desc" placeholder="Cerca per descrizione..." list="man-uscita-desc-list" oninput="suggerisciUscita()"><datalist id="man-uscita-desc-list"></datalist></div><div class="form-row"><div class="form-label">Cliente</div><input class="form-input" id="man-uscita-cliente" placeholder="Nome cliente" list="man-uscita-cli-list"><datalist id="man-uscita-cli-list"></datalist></div><div class="form-row"><div class="form-label">Unità di scarico</div><div id="usc-unit-pills" style="display:flex;gap:4px;flex-wrap:wrap"><button type="button" class="usc-pill active" onclick="setUscitaUnit('cartoni')" style="padding:8px 12px;border-radius:8px;border:2px solid var(--accent);background:var(--accent);color:#000;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">📦 Cartoni</button><button type="button" class="usc-pill" onclick="setUscitaUnit('pezzi')" style="padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.9);background:transparent;color:#c0c0c0;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">🔹 Pezzi</button><button type="button" class="usc-pill" onclick="setUscitaUnit('confezioni')" style="padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.9);background:transparent;color:#c0c0c0;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">📋 Conf.</button><button type="button" class="usc-pill" onclick="setUscitaUnit('coppie')" style="padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.9);background:transparent;color:#c0c0c0;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">👥 Coppie</button><button type="button" class="usc-pill" onclick="setUscitaUnit('kg')" style="padding:8px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.9);background:transparent;color:#c0c0c0;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">⚖️ Kg</button></div></div><div class="form-row-2"><div class="form-row"><div class="form-label" id="man-usc-qty-label">Quantità (cartoni)</div><input class="form-input" id="man-uscita-qty" type="number" min="1" placeholder="10"></div><div class="form-row" style="display:flex;align-items:flex-end"><button class="btn btn-danger" style="width:100%" onclick="addManUscita()">📤 Scarica</button></div></div></div></div>
   </div>
   <div class="ai-processing" id="ai-proc-uscita"><div class="ai-header"><div class="ai-dot"></div>AI in elaborazione bolle...</div><div class="ai-log" id="ai-log-uscita"></div></div>
-  <div class="confirm-panel" id="confirm-uscita"><div class="confirm-title">✓ Articoli rilevati — Conferma scarico</div><table class="confirm-table"><thead><tr><th>Articolo</th><th>Codice</th><th>Qtà da scaricare</th><th>Giacenza attuale</th></tr></thead><tbody id="confirm-tbody-uscita"></tbody></table><div class="confirm-actions"><button class="btn btn-secondary" onclick="cancelConfirm('uscita')">Annulla</button><button class="btn btn-danger" onclick="applyConfirm('uscita')">📤 Conferma scarico inventario</button></div></div>
+  <div class="confirm-panel" id="confirm-uscita"><div class="confirm-title">✓ Articoli rilevati — Conferma scarico</div><table class="confirm-table" style="width:100%"><thead><tr><th style="text-align:left">ARTICOLO</th><th style="text-align:center;width:80px">QTÀ</th><th style="text-align:right;width:90px">GIAC.</th></tr></thead><tbody id="confirm-tbody-uscita"></tbody></table><div class="confirm-actions"><button class="btn btn-secondary" onclick="cancelConfirm('uscita')">Annulla</button><button class="btn btn-danger" onclick="applyConfirm('uscita')">📤 Conferma scarico inventario</button></div></div>
 </div>
 
 <div class="view" id="view-movimenti"><div class="section-head"><div class="section-title">Storico movimenti</div></div><div class="mov-list" id="all-movimenti"><div class="empty-state"><div class="empty-icon">📋</div><p>Nessun movimento registrato.</p></div></div></div>
@@ -141,7 +141,7 @@
 </div>
 
 <div class="view" id="view-ordini">
-  <div class="section-head" style="margin-bottom:16px"><div class="section-title">🛒 Ordini Fornitori</div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="aggiornaOrdiniAuto()" title="Ricalcola articoli sotto soglia pre-ordine">🔄 Aggiorna</button></div></div>
+  <div class="section-head" style="margin-bottom:16px"><div class="section-title">🛒 Ordini Fornitori</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary" onclick="aggiornaOrdiniAuto()" title="Ricalcola articoli sotto soglia pre-ordine">🔄 Aggiorna</button><button class="btn btn-secondary" onclick="importaOrdineDaPDF()">📥 Da PDF</button></div></div>
   <div style="display:flex;gap:0;margin-bottom:20px;background:#313131;border:2px solid rgba(255,255,255,.9);border-radius:14px;overflow:hidden"><button id="otab-attivi" onclick="switchOrdiniTab('attivi')" style="flex:1;padding:12px;background:#90cdf4;border:none;color:#111;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">📋 Attivi</button><button id="otab-storico" onclick="switchOrdiniTab('storico')" style="flex:1;padding:12px;background:transparent;border:none;color:#c0c0c0;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">🕘 Storico</button><button id="otab-stralci" onclick="switchOrdiniTab('stralci')" style="flex:1;padding:12px;background:transparent;border:none;color:#c0c0c0;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer">⏳ Stralci <span id="stralci-badge" style="display:none;background:#f5c518;color:#111;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-left:2px">0</span></button></div>
   <div id="ordini-attivi-container"><div style="font-size:12px;color:var(--tx2);margin-bottom:18px;padding:10px 14px;background:var(--s1);border-radius:8px;border:1px solid var(--b2)">💡 Gli articoli vengono aggiunti automaticamente quando scendono sotto la <strong>soglia pre-ordine</strong>.</div><div id="ordini-panels"></div></div>
   <div id="ordini-storico-container" style="display:none"><div id="ordini-storico-list"></div></div>
@@ -169,7 +169,7 @@
 </div>
 
 <div class="modal-overlay" id="modal-overlay">
-  <div class="modal"><h3 id="modal-title">Nuovo articolo</h3><div class="form-row"><div class="form-label">Codice interno</div><input class="form-input" id="new-code" placeholder="es. PIATTI-23-BL"></div><div class="form-row"><div class="form-label">Codice fornitore</div><input class="form-input" id="new-code-forn" placeholder="es. FAB-001 (opzionale)"></div><div class="form-row"><div class="form-label">Descrizione</div><input class="form-input" id="new-desc" placeholder="es. Piatti monouso bianchi 23cm"></div><div class="form-row-2"><div class="form-row"><div class="form-label">Categoria</div><select class="form-input" id="new-cat"><option>Food Packaging</option><option>Monouso</option><option>Cleaning Solution</option><option>Tovagliato</option><option>Altro</option></select></div><div class="form-row"><div class="form-label">Fornitore</div><input class="form-input" id="new-fornitore" placeholder="es. Fabbri" list="fornitori-list"><datalist id="fornitori-list"></datalist></div></div><div class="form-row" id="cliente-row"><div class="form-label">Cliente personalizzato</div><input class="form-input" id="new-cliente" placeholder="es. Ristorante Da Mario" list="clienti-list"><datalist id="clienti-list"></datalist></div><div class="form-row-2"><div class="form-row"><div class="form-label">Giacenza iniziale</div><input class="form-input" id="new-qty" type="number" min="0" placeholder="0"></div><div class="form-row"><div class="form-label">Unità di misura</div><select class="form-input" id="new-udm" onchange="aggiornaLabelPezzi()"><option value="cartoni">Cartoni</option><option value="coppie">Coppie</option><option value="confezioni">Confezioni</option><option value="pezzi">Pezzi</option><option value="kg">Kilogrammi (kg)</option></select></div><div class="form-row"><div class="form-label">Soglia minima alert</div><input class="form-input" id="new-min" type="number" min="1" placeholder="5"></div></div><div class="form-row" id="pezzi-cartone-row"><div class="form-label" id="pezzi-cartone-label">Pezzi per cartone (opzionale)</div><input class="form-input" id="new-pezzi-cartone" type="number" min="0" placeholder="es. 12 — lascia vuoto se non serve" oninput="aggiornaLabelPezzi()"></div><div class="form-row" id="pezzi-sfusi-row" style="display:none"><div class="form-label">Pezzi sfusi iniziali</div><input class="form-input" id="new-pezzi-sfusi" type="number" min="0" placeholder="0 — pezzi non in cartone"></div><div class="form-row"><div class="form-label">Soglia pre-ordine</div><input class="form-input" id="new-preordine" type="number" min="1" placeholder="es. 12"></div><div class="form-row"><div class="form-label">📝 Note / Annotazioni</div><input class="form-input" id="new-note-art" placeholder="es. Colore speciale, attenzione fragile..."></div><div class="form-row"><div class="form-label">Corsia / Posizione magazzino</div><div style="display:flex;gap:8px;align-items:center"><input class="form-input" id="new-corsia" placeholder="es. A3, Corsia 2" style="flex:1"><button type="button" onclick="triggerCorsiaPhoto()" style="padding:8px 12px;background:var(--s3);border:1px solid var(--b2);border-radius:8px;color:#f0f0f0;cursor:pointer;font-size:16px;flex-shrink:0">📷</button></div><input type="file" id="corsia-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handleCorsiaPhoto(this)"><div id="corsia-photo-preview" style="margin-top:8px;display:none"><div style="position:relative;display:inline-block"><img id="corsia-photo-img" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--b2)"><button onclick="removeCorsiaPhoto()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);border:none;color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">✕</button></div></div></div><div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal()">Annulla</button><button class="btn btn-primary" onclick="saveNewArticle()">Salva articolo</button></div></div>
+  <div class="modal"><h3 id="modal-title">Nuovo articolo</h3><div class="form-row"><div class="form-label">Codice interno</div><input class="form-input" id="new-code" placeholder="es. PIATTI-23-BL"></div><div class="form-row"><div class="form-label">Codice fornitore</div><input class="form-input" id="new-code-forn" placeholder="es. FAB-001 (opzionale)"></div><div class="form-row"><div class="form-label">Descrizione</div><input class="form-input" id="new-desc" placeholder="es. Piatti monouso bianchi 23cm"></div><div class="form-row-2"><div class="form-row"><div class="form-label">Categoria</div><select class="form-input" id="new-cat"><option>Food Packaging</option><option>Monouso</option><option>Cleaning Solution</option><option>Tovagliato</option><option>Altro</option></select></div><div class="form-row"><div class="form-label">Fornitore</div><input class="form-input" id="new-fornitore" placeholder="es. Fabbri" list="fornitori-list"><datalist id="fornitori-list"></datalist></div></div><div class="form-row" id="cliente-row"><div class="form-label">Cliente personalizzato</div><input class="form-input" id="new-cliente" placeholder="es. Ristorante Da Mario" list="clienti-list"><datalist id="clienti-list"></datalist></div><div class="form-row-2"><div class="form-row"><div class="form-label">Giacenza iniziale</div><input class="form-input" id="new-qty" type="number" min="0" placeholder="0"></div><div class="form-row"><div class="form-label">Unità di misura</div><select class="form-input" id="new-udm" onchange="aggiornaLabelPezzi()"><option value="cartoni">Cartoni</option><option value="coppie">Coppie</option><option value="confezioni">Confezioni</option><option value="pezzi">Pezzi</option><option value="kg">Kilogrammi (kg)</option></select></div><div class="form-row"><div class="form-label">Soglia minima alert</div><input class="form-input" id="new-min" type="number" min="1" placeholder="5"></div></div><div class="form-row" id="pezzi-cartone-row"><div class="form-label" id="pezzi-cartone-label">Pezzi per cartone (opzionale)</div><input class="form-input" id="new-pezzi-cartone" type="number" min="0" placeholder="es. 12 — lascia vuoto se non serve" oninput="aggiornaLabelPezzi()"></div><div class="form-row" id="pezzi-sfusi-row" style="display:none"><div class="form-label">Pezzi sfusi iniziali</div><input class="form-input" id="new-pezzi-sfusi" type="number" min="0" placeholder="0 — pezzi non in cartone"></div><div class="form-row" id="conf-per-unita-row"><div class="form-label" id="conf-per-unita-label">Confezioni per cartone (opzionale)</div><input class="form-input" id="new-conf-per-unita" type="number" min="0" placeholder="es. 20 — lascia vuoto se non serve"></div><div class="form-row" id="rotoli-per-unita-row"><div class="form-label" id="rotoli-per-unita-label">Rotoli per cartone (opzionale)</div><input class="form-input" id="new-rotoli-per-unita" type="number" min="0" placeholder="es. 12 — lascia vuoto se non serve"></div><div class="form-row"><div class="form-label">Soglia pre-ordine</div><input class="form-input" id="new-preordine" type="number" min="1" placeholder="es. 12"></div><div class="form-row"><div class="form-label">📝 Note / Annotazioni</div><input class="form-input" id="new-note-art" placeholder="es. Colore speciale, attenzione fragile..."></div><div class="form-row"><div class="form-label">Corsia / Posizione magazzino</div><div style="display:flex;gap:8px;align-items:center"><input class="form-input" id="new-corsia" placeholder="es. A3, Corsia 2" style="flex:1"><button type="button" onclick="triggerCorsiaPhoto()" style="padding:8px 12px;background:var(--s3);border:1px solid var(--b2);border-radius:8px;color:#f0f0f0;cursor:pointer;font-size:16px;flex-shrink:0">📷</button></div><input type="file" id="corsia-photo-input" accept="image/*" capture="environment" style="display:none" onchange="handleCorsiaPhoto(this)"><div id="corsia-photo-preview" style="margin-top:8px;display:none"><div style="position:relative;display:inline-block"><img id="corsia-photo-img" style="width:100%;max-height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--b2)"><button onclick="removeCorsiaPhoto()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);border:none;color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">✕</button></div></div></div><div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal()">Annulla</button><button class="btn btn-primary" onclick="saveNewArticle()">Salva articolo</button></div></div>
 </div>
 
 <div class="modal-overlay" id="cliente-modal-overlay"><div class="modal"><h3>Nuovo cliente personalizzato</h3><div class="form-row"><div class="form-label">Nome cliente / Ragione sociale</div><input class="form-input" id="new-cliente-name" placeholder="es. Ristorante Da Mario"></div><div class="modal-actions"><button class="btn btn-secondary" onclick="closeClienteModal()">Annulla</button><button class="btn btn-primary" onclick="saveNewCliente()">Aggiungi cliente</button></div></div></div>
@@ -560,11 +560,15 @@ showConfirm=function(items,type){
     var isNew=!existing;
     var currentQty=existing?existing.qty:0;
     var udmBolla=it.udm||'';
-    var udmArt=existing?(existing.udm||'cartoni'):'—';
+    var udmArt=existing?(existing.udm||'cartoni'):'\u2014';
     var udmLabel=udmBolla||udmArt;
-    var clienteTag=(clientiUnici.length>1&&it.cliente)?'<div style="font-size:10px;color:#90cdf4;margin-top:2px">\uD83D\uDC64 '+escapeHtml(it.cliente)+'</div>':'';
-    if(type==='entrata')return'<tr><td><div>'+escapeHtml(it.desc)+'</div>'+clienteTag+'<div style="font-size:10px;color:var(--tx2)">'+escapeHtml(it.code)+'</div></td><td style="text-align:center;white-space:nowrap"><input class="qty-input" id="pqty-'+i+'" value="'+it.qty+'" type="number" min="0" style="width:55px;padding:5px;text-align:center;background:var(--s3);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:14px;font-weight:700"><div style="font-size:10px;color:var(--tx2);margin-top:2px">'+udmLabel+'</div></td><td style="text-align:right">'+(isNew?'<span style="color:var(--warn);font-size:11px">Nuovo</span>':'<span style="color:var(--green);font-size:11px">\u2713 '+currentQty+' '+udmArt+'</span>')+'</td></tr>';
-    return'<tr><td><div>'+escapeHtml(it.desc)+'</div>'+clienteTag+'<div style="font-size:10px;color:var(--tx2)">'+escapeHtml(it.code)+'</div></td><td style="text-align:center;white-space:nowrap"><input class="qty-input" id="pqty-'+i+'" value="'+it.qty+'" type="number" min="0" style="width:55px;padding:5px;text-align:center;background:var(--s3);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:14px;font-weight:700"><div style="font-size:10px;color:var(--tx2);margin-top:2px">'+udmLabel+'</div></td><td style="text-align:right"><span style="font-size:12px;color:'+(currentQty<it.qty?'var(--danger)':'var(--green)')+'">'+currentQty+' '+udmArt+'</span></td></tr>';
+    var clienteTag=(clientiUnici.length>1&&it.cliente)?'<div style="font-size:10px;color:#90cdf4">\uD83D\uDC64 '+escapeHtml(it.cliente)+'</div>':'';
+    var descHtml='<div style="font-size:13px;color:#fff;font-weight:600">'+escapeHtml(it.desc)+'</div><div style="font-size:10px;color:var(--tx2)">'+escapeHtml(it.code)+'</div>'+clienteTag;
+    var qtyHtml='<input class="qty-input" id="pqty-'+i+'" value="'+it.qty+'" type="number" min="0" style="width:55px;padding:6px;text-align:center;background:var(--s3);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:15px;font-weight:700"><div style="font-size:10px;color:var(--tx2);margin-top:2px;text-align:center">'+udmLabel+'</div>';
+    var giacHtml;
+    if(type==='entrata'){giacHtml=isNew?'<span style="color:var(--warn);font-size:11px">Nuovo</span>':'<span style="color:var(--green);font-size:12px">\u2713 '+currentQty+'</span><div style="font-size:10px;color:var(--tx2)">'+udmArt+'</div>';}
+    else{giacHtml='<span style="font-size:14px;font-weight:700;color:'+(currentQty<it.qty?'var(--danger)':'var(--green)')+'">'+currentQty+'</span><div style="font-size:10px;color:var(--tx2)">'+udmArt+'</div>';}
+    return'<tr><td style="padding:10px 6px">'+descHtml+'</td><td style="padding:10px 4px;text-align:center;vertical-align:top">'+qtyHtml+'</td><td style="padding:10px 6px;text-align:right;vertical-align:top">'+giacHtml+'</td></tr>';
   }).join('');
 };
 
@@ -614,7 +618,7 @@ function isArticoloIncompleto(a){
   return false;
 }
 
-// quickEdit: carica noteArt nel campo
+// quickEdit: carica noteArt + confPerUnita + rotoliPerUnita
 var _b4QuickEdit=quickEdit;
 quickEdit=function(id){
   _b4QuickEdit(id);
@@ -623,14 +627,23 @@ quickEdit=function(id){
     if(!art)return;
     var noteEl=document.getElementById('new-note-art');
     if(noteEl)noteEl.value=art.noteArt||'';
+    var confEl=document.getElementById('new-conf-per-unita');
+    if(confEl)confEl.value=art.confPerUnita||'';
+    var rotEl=document.getElementById('new-rotoli-per-unita');
+    if(rotEl)rotEl.value=art.rotoliPerUnita||'';
+    aggiornaLabelConversioni();
   },60);
 };
 
-// saveNewArticle: salva noteArt
+// saveNewArticle: salva noteArt + confPerUnita + rotoliPerUnita
 var _b4Save=saveNewArticle;
 saveNewArticle=function(){
   var noteEl=document.getElementById('new-note-art');
   var noteVal=noteEl?noteEl.value.trim():'';
+  var confEl=document.getElementById('new-conf-per-unita');
+  var confVal=parseInt(confEl?confEl.value:'')||0;
+  var rotEl=document.getElementById('new-rotoli-per-unita');
+  var rotVal=parseInt(rotEl?rotEl.value:'')||0;
   var editId=parseInt(document.getElementById('modal-overlay').dataset.editId)||0;
   _b4Save();
   var art;
@@ -638,11 +651,171 @@ saveNewArticle=function(){
   else{art=inventario[inventario.length-1];}
   if(art){
     art.noteArt=noteVal;
+    art.confPerUnita=confVal;
+    art.rotoliPerUnita=rotVal;
     if(art.fornitore&&art.min>0)delete art._incompleto;
     saveData();
   }
   if(noteEl)noteEl.value='';
+  if(confEl)confEl.value='';
+  if(rotEl)rotEl.value='';
 };
+
+// Aggiorna label conversioni in base alla UdM
+function aggiornaLabelConversioni(){
+  var udm=document.getElementById('new-udm');
+  if(!udm)return;
+  var u=udm.value||'cartoni';
+  var singolare={cartoni:'cartone',coppie:'coppia',confezioni:'confezione',kg:'chilo'};
+  var s=singolare[u]||u;
+  var confLabel=document.getElementById('conf-per-unita-label');
+  if(confLabel)confLabel.textContent='Confezioni per '+s+' (opzionale)';
+  var rotLabel=document.getElementById('rotoli-per-unita-label');
+  if(rotLabel)rotLabel.textContent='Rotoli per '+s+' (opzionale)';
+}
+// Hook su cambio UdM
+var _b4AggLabelPezzi=aggiornaLabelPezzi;
+aggiornaLabelPezzi=function(){_b4AggLabelPezzi();aggiornaLabelConversioni();};
+
+// Conversione unità dalla bolla → UdM magazzino
+function convertToMagazzino(art,qty,udmBolla){
+  if(!art||!qty||qty<=0)return{qty:qty,udm:udmBolla,converted:false};
+  var ub=(udmBolla||'').toLowerCase().replace('.','');
+  var um=(art.udm||'cartoni').toLowerCase();
+  // Stessa unità → nessuna conversione
+  if(ub===um||!ub)return{qty:qty,udm:um,converted:false};
+  // Colli = cartoni
+  if(ub==='colli')return{qty:qty,udm:um,converted:false};
+  // Conf → UdM principale
+  if((ub==='conf'||ub==='confezioni'||ub==='confezione')&&art.confPerUnita>0){
+    var cartoni=Math.floor(qty/art.confPerUnita);
+    var resto=qty%art.confPerUnita;
+    return{qty:cartoni,udm:um,restoConf:resto,converted:true,label:qty+' conf = '+cartoni+' '+um+(resto>0?' + '+resto+' conf resto':'')};
+  }
+  // Rotoli → UdM principale
+  if((ub==='rotoli'||ub==='rotolo')&&art.rotoliPerUnita>0){
+    var cartoni=Math.floor(qty/art.rotoliPerUnita);
+    var resto=qty%art.rotoliPerUnita;
+    return{qty:cartoni,udm:um,restoRotoli:resto,converted:true,label:qty+' rotoli = '+cartoni+' '+um+(resto>0?' + '+resto+' rotoli resto':'')};
+  }
+  // Pezzi → UdM principale
+  if((ub==='pz'||ub==='pezzi')&&art.pezziPerCartone>0){
+    var cartoni=Math.floor(qty/art.pezziPerCartone);
+    var resto=qty%art.pezziPerCartone;
+    return{qty:cartoni,udm:um,restoPezzi:resto,converted:true,label:qty+' pz = '+cartoni+' '+um+(resto>0?' + '+resto+' pz sfusi':'')};
+  }
+  // Nessuna conversione possibile → scarica così com'è
+  return{qty:qty,udm:ub,converted:false};
+}
+
+// Override applyConfirm con conversione unità
+applyConfirm=function(type){
+  var now=new Date().toISOString();
+  pendingItems.forEach(function(it,i){
+    var qEl=document.getElementById('pqty-'+i);
+    var qty=parseInt(qEl?.value)||0;if(qty===0)return;
+    var existing=findArticolo(it.code,it.desc,type);
+    var udmFromBolla=it.udm||'';
+    var clienteFromBolla=it.cliente||'';
+    var fornitoreFromBolla=it.fornitore||'';
+    
+    if(type==='entrata'){
+      if(existing){
+        var conv=convertToMagazzino(existing,qty,udmFromBolla);
+        if(conv.converted){existing.qty+=conv.qty;if(conv.restoPezzi>0)caricaPezzi(existing,conv.restoPezzi);}
+        else{existing.qty+=qty;}
+        if(!existing.codeForn&&it.code&&it.code!==existing.code)existing.codeForn=it.code;
+        if(fornitoreFromBolla&&!existing.fornitore)existing.fornitore=fornitoreFromBolla;
+      }else{
+        if(fornitoreFromBolla&&!fornitori.find(function(f){return f.nome===fornitoreFromBolla}))fornitori.push({nome:fornitoreFromBolla,email:'',logo:''});
+        inventario.push({id:nextId++,code:it.code,codeForn:it.code,desc:it.desc,cat:'Altro',qty:qty,min:5,preOrdine:7,fornitore:fornitoreFromBolla,cliente:clienteFromBolla,ordinato:false,udm:udmFromBolla||'cartoni',pezziPerCartone:0,confPerUnita:0,rotoliPerUnita:0,_incompleto:true});
+      }
+    }else{
+      if(existing){
+        var conv=convertToMagazzino(existing,qty,udmFromBolla);
+        if(conv.converted){existing.qty=Math.max(0,existing.qty-conv.qty);if(conv.restoPezzi>0)scaricaPezzi(existing,conv.restoPezzi);}
+        else{existing.qty=Math.max(0,existing.qty-qty);}
+      }
+    }
+    var art=findArticolo(it.code,it.desc,type);
+    var movUdm=udmFromBolla||(art?art.udm||'cartoni':'cartoni');
+    var movCliente=clienteFromBolla||(art?art.cliente||'':'');
+    var movFornitore=fornitoreFromBolla||(art?art.fornitore||'':'');
+    movimenti.push({type:type,code:it.code,desc:it.desc,qty:qty,ts:now,cliente:movCliente,fornitore:movFornitore,udm:movUdm});
+    archivioMovimenti.push({type:type,code:it.code,desc:it.desc,qty:qty,ts:now,cliente:movCliente,fornitore:movFornitore,udm:movUdm});
+  });
+  cancelConfirm(type);updateStats();
+  showToast(type==='entrata'?'\u2713 Inventario aggiornato':'\u2713 Scarico registrato');
+  if(type==='uscita')checkAlertDopoUscita();
+  saveData();popolaDatalistUscita();
+};
+
+// === IMPORTA ORDINE DA PDF ===
+async function importaOrdineDaPDF(){
+  var input=document.createElement('input');input.type='file';input.accept='.pdf,image/jpeg,image/png';
+  input.onchange=async function(e){
+    var file=e.target.files[0];if(!file)return;
+    showToast('\u23F3 Leggo ordine...');
+    var apiKey=localStorage.getItem('mag_apikey');
+    if(!apiKey){showToast('Chiave API mancante');return;}
+    try{
+      var pdfText='';
+      var isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
+      if(isPDF){
+        var pages=await extractTextFromPDF(file);
+        pdfText=pages.join('\n--- NUOVA PAGINA ---\n');
+      }else{
+        var dataUrl=await compressForAPI(file,1280,0.7);
+        var vResp=await callGroqVision(apiKey,dataUrl,'Estrai TUTTO il testo visibile da questo documento. Trascrivi esattamente.');
+        pdfText=vResp;
+      }
+      if(!pdfText||pdfText.length<10){showToast('Documento vuoto');return;}
+      
+      var prompt='Questo è un ORDINE A FORNITORE italiano.\nEstrai:\n- fornitore: a chi è indirizzato l\'ordine\n- articoli: [{code, desc, qty (numero intero, 1.000=mille), udm}]\nRispondi SOLO JSON:\n{"fornitore":"","articoli":[{"code":"","desc":"","qty":0,"udm":""}]}\n\nTESTO:\n'+pdfText.substring(0,4000);
+      
+      var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+        method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+        body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:2000,temperature:0.05,
+          messages:[{role:'user',content:prompt}]})
+      });
+      var data=await resp.json();
+      if(!resp.ok){showToast('\u274C '+(data.error?.message||resp.status));return;}
+      
+      var text=data.choices?.[0]?.message?.content||'';
+      var clean=text.replace(/```json|```/g,'').trim();
+      var jm=clean.match(/\{[\s\S]*\}/);
+      var parsed;try{parsed=JSON.parse(jm?jm[0]:clean);}catch(pe){showToast('Errore parsing');return;}
+      
+      var forn=parsed.fornitore||'Fornitore';
+      var articoli=parsed.articoli||[];
+      if(articoli.length===0){showToast('Nessun articolo trovato');return;}
+      
+      if(!ordiniFornitore[forn])ordiniFornitore[forn]={articoli:[],stato:'aperto',esclusi:[]};
+      var ordine=ordiniFornitore[forn];
+      var aggiunti=0;
+      articoli.forEach(function(it){
+        if(!it.desc)return;
+        var q=parsePdfQty(it.qty);
+        var existing=cercaArticolo(it.code||it.desc);
+        if(existing){
+          if(!ordine.articoli.find(function(x){return x.id===existing.id})){
+            ordine.articoli.push({id:existing.id,code:existing.code,desc:existing.desc,qtyDaOrdinare:q||'',auto:false,note:'Da PDF'});
+            aggiunti++;
+          }
+        }else{
+          var code=it.code||('ORD-'+Date.now()+'-'+(aggiunti+1));
+          var newArt={id:nextId++,code:code,codeForn:it.code||'',desc:it.desc,cat:'Altro',qty:0,min:5,preOrdine:7,fornitore:forn,cliente:'',udm:(it.udm||'cartoni').toLowerCase().replace('.',''),pezziPerCartone:0,confPerUnita:0,rotoliPerUnita:0,_incompleto:true};
+          inventario.push(newArt);
+          ordine.articoli.push({id:newArt.id,code:newArt.code,desc:newArt.desc,qtyDaOrdinare:q||'',auto:false,note:'Da PDF'});
+          aggiunti++;
+        }
+      });
+      if(forn&&!fornitori.find(function(f){return f.nome===forn;}))fornitori.push({nome:forn,email:'',logo:''});
+      saveData();renderOrdini();updateStats();popolaDatalistUscita();
+      showToast('\u2705 Ordine '+forn+': '+aggiunti+' articoli importati');
+    }catch(err){showToast('\u274C '+err.message);}
+  };input.click();
+}
 
 // Badge DOM post-render — nota VISIBILE con testo
 function addArtBadges(){
