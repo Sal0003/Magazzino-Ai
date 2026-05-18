@@ -109,9 +109,9 @@
 
 <div class="view" id="view-report">
   <div style="padding:20px 18px 0">
-    <div style="position:relative;margin-bottom:14px"><input id="report-search" type="text" placeholder="Codice o nome articolo…" style="width:100%;background:#2e2e2e;border:1.5px solid #252525;border-radius:14px;padding:15px 48px 15px 18px;color:#f0f0f0;font-family:Arial,sans-serif;font-size:15px;font-weight:400;box-sizing:border-box;outline:none" oninput="renderReportSuggestions()" onkeydown="if(event.key==='Enter'){selectReportArticle()}"><span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:17px;opacity:.3">🔍</span></div>
+    <div style="position:relative;margin-bottom:14px"><input id="report-search" type="text" placeholder="Articolo, cliente, fornitore, veicolo…" style="width:100%;background:#2e2e2e;border:1.5px solid #252525;border-radius:14px;padding:15px 48px 15px 18px;color:#f0f0f0;font-family:Arial,sans-serif;font-size:15px;font-weight:400;box-sizing:border-box;outline:none" oninput="renderReportSuggestions()" onkeydown="if(event.key==='Enter'){selectReportArticle()}"><span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:17px;opacity:.3">🔍</span></div>
     <div id="report-suggestions" style="display:none;background:#2e2e2e;border:1.5px solid #252525;border-radius:14px;overflow:hidden;margin-bottom:14px"></div>
-    <div id="report-filters" style="display:none;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center"><button class="report-filter-btn active" onclick="setReportFilter('3m',this)">3 mesi</button><button class="report-filter-btn" onclick="setReportFilter('6m',this)">6 mesi</button><button class="report-filter-btn" onclick="setReportFilter('12m',this)">12 mesi</button><button class="report-filter-btn" onclick="setReportFilter('custom',this)">Libero</button><button onclick="stampaReport()" style="margin-left:auto;background:transparent;border:2px solid rgba(255,255,255,.9);border-radius:20px;padding:8px 16px;color:#c8c8c8;font-family:var(--fm);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">🖨️ Stampa</button></div>
+    <div id="report-filters" style="display:none;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center"><button class="report-filter-btn active" onclick="setReportFilter('3m',this)">3 mesi</button><button class="report-filter-btn" onclick="setReportFilter('6m',this)">6 mesi</button><button class="report-filter-btn" onclick="setReportFilter('12m',this)">12 mesi</button><button class="report-filter-btn" onclick="setReportFilter('custom',this)">Libero</button><button onclick="emailReport()" style="background:transparent;border:2px solid rgba(255,255,255,.9);border-radius:20px;padding:8px 16px;color:#c8c8c8;font-family:var(--fm);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">✉️ Email</button><button onclick="stampaReport()" style="margin-left:auto;background:transparent;border:2px solid rgba(255,255,255,.9);border-radius:20px;padding:8px 16px;color:#c8c8c8;font-family:var(--fm);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap">🖨️ Stampa</button></div>
     <div id="report-custom-range" style="display:none;gap:10px;margin-bottom:20px;align-items:center"><div style="display:flex;align-items:center;gap:10px;flex:1"><label style="color:#c8c8c8;font-size:13px;white-space:nowrap">Dal</label><input type="date" id="report-date-from" style="background:#2e2e2e;border:1.5px solid #252525;border-radius:10px;padding:10px 12px;color:#f0f0f0;font-size:14px;flex:1;outline:none" onchange="renderReport()"></div><div style="display:flex;align-items:center;gap:10px;flex:1"><label style="color:#c8c8c8;font-size:13px;white-space:nowrap">Al</label><input type="date" id="report-date-to" style="background:#2e2e2e;border:1.5px solid #252525;border-radius:10px;padding:10px 12px;color:#f0f0f0;font-size:14px;flex:1;outline:none" onchange="renderReport()"></div></div>
   </div>
   <div id="report-content" style="padding:0 18px 110px"><div style="text-align:center;padding:100px 20px;color:#333;font-size:14px;line-height:2">Cerca un articolo<br>per vedere il report</div></div>
@@ -404,14 +404,140 @@ addManual=function(){var code=document.getElementById('man-art').value.trim();va
 // Modal scroll fix - blocca body quando modal è aperto
 (function(){var origOpen=openModal;openModal=function(){document.body.style.overflow='hidden';return origOpen.apply(this,arguments);};var origClose=closeModal;closeModal=function(){document.body.style.overflow='';return origClose.apply(this,arguments);};})();
 
-// FIX CRITICO: renderReport deve delegare a renderReportCliente se è un cliente
+// FIX CRITICO: renderReport deve delegare
 var _origRenderReport=renderReport;
 renderReport=function(){
-  if(reportArticolo&&reportArticolo.code&&reportArticolo.code.indexOf('CLI_')===0){
-    renderReportCliente(reportArticolo.desc);
-    return;
+  if(reportArticolo&&reportArticolo.code){
+    if(reportArticolo.code.indexOf('CLI_')===0){renderReportCliente(reportArticolo.desc);return;}
+    if(reportArticolo.code.indexOf('FORN_')===0){renderReportFornitore(reportArticolo.desc);return;}
+    if(reportArticolo.code.indexOf('VEIC_')===0){renderReportVeicolo(reportArticolo.desc);return;}
   }
   _origRenderReport();
+};
+
+// Override suggerimenti report — include fornitori e veicoli
+renderReportSuggestions=function(){
+  var q=document.getElementById('report-search').value.trim().toLowerCase();
+  var sug=document.getElementById('report-suggestions');
+  if(q.length<1){sug.style.display='none';return;}
+  var matches=[];
+  // Clienti
+  var nomiCli=new Set();
+  movimenti.concat(archivioMovimenti).forEach(function(m){if(m.cliente&&m.cliente.toLowerCase().indexOf(q)!==-1)nomiCli.add(m.cliente)});
+  clientiPersonalizzati.forEach(function(c){if(c.toLowerCase().indexOf(q)!==-1)nomiCli.add(c)});
+  [].concat([...nomiCli]).slice(0,3).forEach(function(c){matches.push({code:'\uD83D\uDC64 '+c,desc:'Report cliente',_type:'cli',_name:c});});
+  // Fornitori
+  fornitori.forEach(function(f){if(f.nome.toLowerCase().indexOf(q)!==-1)matches.push({code:'\uD83C\uDFED '+f.nome,desc:'Report fornitore',_type:'forn',_name:f.nome});});
+  // Veicoli
+  parcoAuto.forEach(function(v){if(v.targa.toLowerCase().indexOf(q)!==-1||( v.modello&&v.modello.toLowerCase().indexOf(q)!==-1))matches.push({code:'\uD83D\uDE9B '+v.targa,desc:'Report veicolo'+(v.modello?' — '+v.modello:''),_type:'veic',_name:v.targa});});
+  // Articoli
+  inventario.filter(function(a){return a.code.toLowerCase().indexOf(q)!==-1||(a.codeForn&&a.codeForn.toLowerCase().indexOf(q)!==-1)||a.desc.toLowerCase().indexOf(q)!==-1;}).slice(0,6).forEach(function(a){matches.push({code:a.code,desc:a.desc,_type:'art',_id:a.id});});
+  if(matches.length===0){sug.style.display='none';return;}
+  sug.innerHTML=matches.slice(0,10).map(function(m){
+    var onclick='';
+    if(m._type==='cli')onclick='selectReportArticleById(\'cli_'+m._name+'\')';
+    else if(m._type==='forn')onclick='selectReportArticleById(\'forn_'+m._name+'\')';
+    else if(m._type==='veic')onclick='selectReportArticleById(\'veic_'+m._name+'\')';
+    else onclick='selectReportArticleById('+m._id+')';
+    return'<div onclick="'+onclick+'" style="padding:12px 16px;border-bottom:1px solid #333;cursor:pointer" onmouseenter="this.style.background=\'#383838\'" onmouseleave="this.style.background=\'transparent\'"><div style="font-size:12px;color:#c0c0c0">'+escapeHtml(m.code)+'</div><div style="font-size:14px;color:#fff">'+escapeHtml(m.desc)+'</div></div>';
+  }).join('');
+  sug.style.display='block';
+};
+
+// Override selectReportArticleById — gestisce forn_ e veic_
+selectReportArticleById=function(id){
+  if(typeof id==='string'){
+    if(id.indexOf('cli_')===0){renderReportCliente(id.substring(4));return;}
+    if(id.indexOf('forn_')===0){renderReportFornitore(id.substring(5));return;}
+    if(id.indexOf('veic_')===0){renderReportVeicolo(id.substring(5));return;}
+  }
+  reportArticolo=inventario.find(function(a){return a.id===id});
+  if(!reportArticolo)return;
+  document.getElementById('report-search').value=reportArticolo.code+' \u2014 '+reportArticolo.desc;
+  document.getElementById('report-suggestions').style.display='none';
+  document.getElementById('report-filters').style.display='flex';
+  renderReport();
+};
+
+// REPORT FORNITORE
+renderReportFornitore=function(nome){
+  document.getElementById('report-search').value='\uD83C\uDFED '+nome;
+  document.getElementById('report-suggestions').style.display='none';
+  document.getElementById('report-filters').style.display='flex';
+  reportArticolo={code:'FORN_'+nome,desc:nome};
+  var el=document.getElementById('report-content');
+  var range=getReportDateRange();if(!range){el.innerHTML='';return;}
+  var allMov=archivioMovimenti.length>0?archivioMovimenti:movimenti;
+  var movForn=allMov.filter(function(m){return m.fornitore&&m.fornitore.toLowerCase()===nome.toLowerCase()&&new Date(m.ts)>=range.from&&new Date(m.ts)<=range.to;});
+  var entrate=movForn.filter(function(m){return m.type==='entrata'});
+  var uscite=movForn.filter(function(m){return m.type==='uscita'});
+  var articoliForn=inventario.filter(function(a){return a.fornitore&&a.fornitore.toLowerCase()===nome.toLowerCase()});
+  // Ordini
+  var ordiniStoricoForn=storicoOrdini.filter(function(o){return o.fornitore===nome});
+  var ordineAttivo=ordiniFornitore[nome];
+  var oggi=new Date().toLocaleDateString('it-IT');
+  var html='<div style="border-bottom:1.5px solid rgba(255,255,255,.65);padding-bottom:22px;margin-bottom:28px"><div style="font-size:11px;letter-spacing:2px;color:#c0c0c0;text-transform:uppercase;margin-bottom:12px">Report fornitore \u00b7 '+oggi+'</div><div style="font-size:26px;font-weight:700;color:#3ecf6e;margin-bottom:8px">\uD83C\uDFED '+escapeHtml(nome)+'</div></div>';
+  // Riepilogo
+  html+=titolo('Riepilogo');
+  html+=riga('Articoli forniti',''+articoliForn.length);
+  html+=riga('Carichi nel periodo',entrate.length+' movimenti');
+  html+=riga('Tot. caricato',entrate.reduce(function(s,m){return s+m.qty},0)+' pz');
+  html+=riga('Ordini effettuati',''+ordiniStoricoForn.length);
+  if(ordineAttivo&&ordineAttivo.articoli.length>0)html+=riga('Ordine attivo',ordineAttivo.articoli.length+' articoli'+(ordineAttivo.inviato?' \u2014 INVIATO':' \u2014 da inviare'));
+  if(entrate.length>0){entrate.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});html+=riga('Ultimo carico',new Date(entrate[0].ts).toLocaleDateString('it-IT'));}
+  html+='</div>';
+  // Articoli forniti
+  html+=titolo('Articoli forniti');
+  if(articoliForn.length===0)html+='<div style="padding:16px 0;color:#c0c0c0">Nessun articolo.</div>';
+  else{articoliForn.forEach(function(a){var qC=a.qty===0?'#f03e3e':a.qty<=a.min?'#f5c518':'#3ecf6e';html+=riga(a.desc+'<span style="font-size:11px;color:#888;margin-left:6px">'+a.code+'</span>','<span style="color:'+qC+';font-weight:700">'+a.qty+'</span> '+(a.udm||'ct'));});}
+  html+='</div>';
+  // Storico ordini
+  html+=titolo('Storico ordini');
+  if(ordiniStoricoForn.length===0)html+='<div style="padding:16px 0;color:#c0c0c0">Nessun ordine.</div>';
+  else{ordiniStoricoForn.slice().reverse().forEach(function(o){var d=new Date(o.dataInvio);html+='<div style="padding:13px 0;border-bottom:1.5px solid rgba(255,255,255,.65)"><div style="display:flex;justify-content:space-between"><span style="color:#c0c0c0">'+d.toLocaleDateString('it-IT')+'</span><span style="color:'+(o.consegnato?'#3ecf6e':'#f5c518')+';font-weight:700">'+(o.consegnato?'\u2713 Consegnato':'\u23F3 In attesa')+'</span></div><div style="font-size:12px;color:#888;margin-top:4px">'+o.articoli.length+' articoli</div></div>';});}
+  html+='</div>';
+  // Storico movimenti
+  html+=titolo('Storico movimenti');
+  if(movForn.length===0)html+='<div style="padding:16px 0;color:#c0c0c0">Nessun movimento.</div>';
+  else{movForn.slice().reverse().forEach(function(m){var d=new Date(m.ts);var isU=m.type==='uscita';var mU=m.unitType==='pezzi'?'pz':(m.udm||'ct');html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1.5px solid rgba(255,255,255,.65)"><div><div style="font-size:15px;color:#c0c0c0">'+d.toLocaleDateString('it-IT')+' \u00b7 '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})+'</div><div style="font-size:14px;color:#fff;margin-top:3px">'+escapeHtml(m.desc)+'</div>'+(m.cliente?'<div style="font-size:11px;color:#90cdf4;margin-top:2px">\uD83D\uDC64 '+escapeHtml(m.cliente)+'</div>':'')+'</div><div style="text-align:right"><div style="font-size:18px;font-weight:700;color:'+(isU?'#f03e3e':'#3ecf6e')+'">'+(isU?'\u2212':'+')+m.qty+' '+mU+'</div></div></div>';});}
+  html+='</div>';
+  el.innerHTML=html;
+};
+
+// REPORT VEICOLO
+renderReportVeicolo=function(targa){
+  document.getElementById('report-search').value='\uD83D\uDE9B '+targa;
+  document.getElementById('report-suggestions').style.display='none';
+  document.getElementById('report-filters').style.display='flex';
+  reportArticolo={code:'VEIC_'+targa,desc:targa};
+  var el=document.getElementById('report-content');
+  var v=parcoAuto.find(function(x){return x.targa===targa});
+  if(!v){el.innerHTML='<div style="padding:40px;text-align:center;color:#c0c0c0">Veicolo non trovato.</div>';return;}
+  var oggi=new Date().toLocaleDateString('it-IT');var now=new Date();
+  var html='<div style="border-bottom:1.5px solid rgba(255,255,255,.65);padding-bottom:22px;margin-bottom:28px"><div style="font-size:11px;letter-spacing:2px;color:#c0c0c0;text-transform:uppercase;margin-bottom:12px">Report veicolo \u00b7 '+oggi+'</div><div style="font-size:26px;font-weight:700;color:#60a5fa;margin-bottom:8px">\uD83D\uDE9B '+escapeHtml(v.targa)+'</div>'+(v.modello?'<div style="font-size:16px;color:#ddd">'+escapeHtml(v.modello)+(v.anno?' \u00b7 '+v.anno:'')+'</div>':'')+'</div>';
+  // Scadenze
+  html+=titolo('Scadenze');
+  var scadenze=(v.scadenze||[]).filter(function(s){return !s.completata}).sort(function(a,b){return new Date(a.data)-new Date(b.data)});
+  if(scadenze.length===0)html+='<div style="padding:16px 0;color:#c0c0c0">Nessuna scadenza attiva.</div>';
+  else{scadenze.forEach(function(s){var diff=Math.floor((new Date(s.data)-now)/86400000);var col=diff<=0?'#f03e3e':diff<=30?'#f5c518':'#3ecf6e';var lab=diff<=0?'SCADUTO':diff+' giorni';html+=riga(s.tipo,'<span style="color:'+col+';font-weight:700">'+lab+'</span> \u2014 '+new Date(s.data).toLocaleDateString('it-IT'));});}
+  html+='</div>';
+  // Manutenzioni
+  html+=titolo('Manutenzioni');
+  var manut=(v.manutenzioni||[]).slice().reverse();
+  if(manut.length===0)html+='<div style="padding:16px 0;color:#c0c0c0">Nessuna manutenzione.</div>';
+  else{manut.forEach(function(m){html+='<div style="padding:13px 0;border-bottom:1.5px solid rgba(255,255,255,.65)"><div style="font-size:14px;color:#fff">'+escapeHtml(m.desc)+'</div><div style="font-size:12px;color:#c0c0c0;margin-top:4px">'+new Date(m.data).toLocaleDateString('it-IT')+'</div></div>';});}
+  html+='</div>';
+  el.innerHTML=html;
+};
+
+// EMAIL REPORT
+emailReport=function(){
+  if(!reportArticolo)return;
+  var el=document.getElementById('report-content');if(!el)return;
+  var testo=el.innerText||el.textContent||'';
+  var subject='Report '+reportArticolo.code+' - '+new Date().toLocaleDateString('it-IT');
+  var body=encodeURIComponent(testo.substring(0,2000));
+  window.location.href='mailto:?subject='+encodeURIComponent(subject)+'&body='+body;
 };
 
 // FIX ORDINI: qty vuota di default, rimuovi articoli sopra soglia
