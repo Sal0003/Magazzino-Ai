@@ -713,6 +713,30 @@ function artMenuElimina(){closeArtMenu();if(!_artMenuId)return;var art=inventari
 // PROFORMA
 // ============================================================
 function initProformaView(){var dl=document.getElementById('proforma-clienti-list');if(dl)dl.innerHTML=clientiPersonalizzati.map(c=>'<option value="'+c+'">').join('');}
+function matchArticoloFuzzy(nome){
+  if(!nome)return null;
+  // Normalizza: minuscolo, rimuovi emoji, "x"→" ", togli udm comuni
+  var n=nome.toLowerCase()
+    .replace(/[^\x00-\x7FÀ-ɏ]/g,' ')
+    .replace(/\bx\b/g,' ')
+    .replace(/\b(crt|conf|confezione|confezioni|pz|pezzi|cartone|cartoni|kg|rotolo|rotoli|sacchetto|sacchetti)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+  // 1. Prova findArticolo con testo normalizzato
+  if(typeof findArticolo==='function'){var r=findArticolo('',n,'uscita');if(r)return r;}
+  // 2. Stemming leggero: tronca ultima lettera di parole >4 chars (gestisce masch/femm e sing/plur)
+  var stemmed=n.split(/\s+/).map(function(w){return w.length>4?w.slice(0,-1):w;}).join(' ');
+  if(stemmed!==n&&typeof findArticolo==='function'){var r2=findArticolo('',stemmed,'uscita');if(r2)return r2;}
+  // 3. Fallback parola singola: cerca le parole più lunghe nell'inventario
+  var parole=n.split(/\s+/).filter(function(w){return w.length>3;}).sort(function(a,b){return b.length-a.length;});
+  for(var i=0;i<Math.min(parole.length,3);i++){
+    var p=parole[i];
+    var f=inventario.find(function(a){return a.desc.toLowerCase().indexOf(p)!==-1;});
+    if(f)return f;
+    // anche stemmata
+    if(p.length>4){var ps=p.slice(0,-1);var f2=inventario.find(function(a){return a.desc.toLowerCase().indexOf(ps)!==-1;});if(f2)return f2;}
+  }
+  return null;
+}
 async function elaboraProforma(){
   var testo=document.getElementById('proforma-input').value.trim();
   var cliente=document.getElementById('proforma-cliente').value.trim();
@@ -720,10 +744,10 @@ async function elaboraProforma(){
   var btn=document.getElementById('proforma-btn');btn.disabled=true;btn.textContent='⏳ Elaboro...';
   var apiKey=localStorage.getItem('mag_apikey')||'';
   if(!apiKey){showToast('⚠️ Chiave API mancante');btn.disabled=false;btn.textContent='✨ Genera Proforma';return;}
-  var invStr=inventario.map(function(a){return'- '+a.code+': '+a.desc;}).join('\n');
-  var prompt='Sei un assistente magazzino italiano. Analizza questo messaggio ordine WhatsApp.\n\nCliente: "'+(cliente||'non specificato')+'"\nMessaggio:\n"'+testo+'"\n\nINVENTARIO:\n'+invStr+'\n\nPer ogni articolo menzionato:\n- Abbina al codice inventario per nome/descrizione\n- Estrai la quantità richiesta\n- Se non trovi corrispondenza lascia code vuoto\n\nRispondi SOLO JSON array:\n[{"code":"","desc":"","qty":0}]';
+  // L'AI estrae SOLO nomi e quantità — il matching lo fa il codice locale
+  var prompt='Estrai articoli e quantità da questo messaggio ordine WhatsApp italiano.\nIgnora note come "x domani", "per domani", "urgente", date, orari, saluti.\n\nMessaggio:\n"'+testo+'"\n\nRispondi SOLO JSON array (una voce per articolo):\n[{"item":"nome articolo","qty":1}]';
   try{
-    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:1500,temperature:0.1,messages:[{role:'user',content:prompt}]})});
+    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:800,temperature:0.05,messages:[{role:'user',content:prompt}]})});
     var data=await resp.json();
     if(!resp.ok)throw new Error(data.error?.message||resp.status);
     var text=data.choices?.[0]?.message?.content||'';
@@ -731,18 +755,17 @@ async function elaboraProforma(){
     var jm=clean.match(/\[[\s\S]*\]/);
     var aiItems=[];try{aiItems=JSON.parse(jm?jm[0]:clean);}catch(pe){throw new Error('Formato risposta AI non valido');}
     var items=aiItems.map(function(it){
-      var art=null;
-      if(it.code)art=inventario.find(function(a){return a.code===it.code;})||inventario.find(function(a){return a.codeForn&&a.codeForn===it.code;});
-      if(!art&&it.desc&&typeof findArticolo==='function')art=findArticolo('',it.desc,'uscita');
-      if(!art&&it.desc&&typeof cercaArticolo==='function')art=cercaArticolo(it.desc);
+      var nome=(it.item||it.desc||it.name||'').trim();
+      if(!nome)return null;
+      var art=matchArticoloFuzzy(nome);
       var stato,dispLabel;
       if(!art){stato='mancante';dispLabel='—';}
       else if(art.qty>art.min){stato='ok';dispLabel=art.qty+' '+(art.udm||'ct');}
       else if(art.qty>0){stato='scarso';dispLabel=art.qty+' '+(art.udm||'ct')+' (min '+art.min+')';}
       else if(art.ordinato){stato='in_arrivo';dispLabel='In arrivo';}
       else{stato='esaurito';dispLabel='Esaurito';}
-      return{code:art?art.code:(it.code||'?'),desc:art?art.desc:it.desc,qty:parseInt(it.qty)||1,stato:stato,dispLabel:dispLabel};
-    }).filter(function(it){return it.desc&&it.desc.length>1;});
+      return{code:art?art.code:'?',desc:art?art.desc:nome,qty:parseInt(it.qty)||1,stato:stato,dispLabel:dispLabel,_nomeOriginale:(!art?nome:'')};
+    }).filter(function(it){return it&&it.desc;});
     if(items.length===0){showToast('⚠️ Nessun articolo trovato nel messaggio');return;}
     renderProforma(items,cliente);
   }catch(e){showToast('❌ '+e.message);}
