@@ -131,7 +131,7 @@
 
 <div class="view" id="view-proforma">
   <div class="section-head" style="margin-bottom:16px"><div class="section-title">📋 Proforma D.D.T.</div></div>
-  <div style="background:var(--s1);border:1px solid var(--b2);border-radius:12px;padding:16px;margin-bottom:16px"><div class="form-label" style="margin-bottom:8px">Cliente</div><input class="form-input" id="proforma-cliente" placeholder="es. Bar Rossi" list="proforma-clienti-list" style="margin-bottom:12px"><datalist id="proforma-clienti-list"></datalist><div class="form-label" style="margin-bottom:8px">Messaggio ordine</div><textarea id="proforma-input" placeholder="Incolla qui il messaggio del cliente..." style="width:100%;min-height:110px;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:12px;color:var(--tx);font-family:var(--fm);font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:12px"></textarea><button id="proforma-btn" onclick="elaboraProforma()" class="btn btn-primary" style="width:100%">✨ Genera Proforma</button></div>
+  <div style="background:var(--s1);border:1px solid var(--b2);border-radius:12px;padding:16px;margin-bottom:16px"><div class="form-label" style="margin-bottom:8px">Cliente</div><input class="form-input" id="proforma-cliente" placeholder="es. Bar Rossi" list="proforma-clienti-list" style="margin-bottom:12px"><datalist id="proforma-clienti-list"></datalist><div class="form-label" style="margin-bottom:8px">Messaggio ordine</div><textarea id="proforma-input" placeholder="Incolla qui il messaggio del cliente..." style="width:100%;min-height:110px;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:12px;color:var(--tx);font-family:var(--fm);font-size:13px;resize:vertical;box-sizing:border-box;margin-bottom:12px"></textarea><div style="display:flex;gap:8px;margin-bottom:8px"><button onclick="elaboraProformaFoto()" class="btn btn-secondary" style="flex:1;font-size:13px">📷 Screenshot WhatsApp</button></div><button id="proforma-btn" onclick="elaboraProforma()" class="btn btn-primary" style="width:100%">✨ Genera Proforma</button></div>
   <div id="proforma-result" style="display:none"><div id="proforma-banner"></div><div style="background:var(--s1);border:1px solid var(--b2);border-radius:12px;overflow:hidden;margin-bottom:16px"><div style="padding:12px 16px;border-bottom:1px solid var(--b2);display:flex;justify-content:space-between;align-items:center"><div><div style="font-family:var(--fh);font-size:14px;font-weight:700" id="proforma-cliente-label"></div><div style="font-size:12px;color:var(--tx2);margin-top:2px" id="proforma-data-label"></div></div><div style="font-size:12px;color:var(--warn)">⚠️ Documento non fiscale</div></div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--b2)"><th style="padding:10px 12px;font-size:12px;text-align:left;color:var(--tx2)">Codice</th><th style="padding:10px 12px;font-size:12px;text-align:left;color:var(--tx2)">Articolo</th><th style="padding:10px 12px;font-size:12px;text-align:center;color:var(--tx2)">Qtà</th><th style="padding:10px 12px;font-size:12px;text-align:left;color:var(--tx2)">Disp.</th></tr></thead><tbody id="proforma-tbody"></tbody></table></div></div><input type="hidden" id="proforma-items-json"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary" style="font-size:12px;flex:1" onclick="stampaProforma()">🖨️ Stampa</button><button class="btn btn-secondary" style="font-size:12px;flex:1" onclick="emailProforma()">✉️ Email</button><button class="btn btn-primary" style="font-size:12px;flex:1" onclick="applicaUscitaProforma()">📤 Scarica merce</button></div></div>
 </div>
 
@@ -1268,6 +1268,43 @@ resetCompleto=function(){
     saveData();
     window.location.reload();
   };
+};
+
+// === PROFORMA DA SCREENSHOT WHATSAPP ===
+elaboraProformaFoto=async function(){
+  var input=document.createElement('input');
+  input.type='file';input.accept='image/jpeg,image/png,image/webp';
+  input.onchange=async function(e){
+    var file=e.target.files[0];if(!file)return;
+    var apiKey=localStorage.getItem('mag_apikey');
+    if(!apiKey){showToast('⚠️ Chiave API mancante');return;}
+    var ta=document.getElementById('proforma-input');
+    if(ta)ta.value='⏳ Analizzo screenshot...';
+    try{
+      var dataUrl=await compressForAPI(file,1280,0.85);
+      var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+        body:JSON.stringify({
+          model:'meta-llama/llama-4-scout-17b-16e-instruct',
+          max_tokens:800,temperature:0.05,
+          messages:[{role:'user',content:[
+            {type:'text',text:'Questo è uno screenshot di una chat WhatsApp con un ordine merce. Estrai SOLO il testo dell\'ordine: articoli e quantità richiesti. Escludi date, orari, nomi del mittente e interfaccia WhatsApp. Rispondi solo con il testo dell\'ordine, una riga per articolo.'},
+            {type:'image_url',image_url:{url:dataUrl}}
+          ]}]
+        })
+      });
+      var data=await resp.json();
+      if(!resp.ok)throw new Error(data.error?.message||resp.status);
+      var text=(data.choices?.[0]?.message?.content||'').trim();
+      if(ta)ta.value=text;
+      showToast('✅ Testo estratto — verifica e premi Genera Proforma');
+    }catch(err){
+      if(ta)ta.value='';
+      showToast('❌ '+err.message);
+    }
+  };
+  input.click();
 };
 
 console.log('BLOCK4 OK');

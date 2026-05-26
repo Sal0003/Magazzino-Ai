@@ -713,8 +713,66 @@ function artMenuElimina(){closeArtMenu();if(!_artMenuId)return;var art=inventari
 // PROFORMA
 // ============================================================
 function initProformaView(){var dl=document.getElementById('proforma-clienti-list');if(dl)dl.innerHTML=clientiPersonalizzati.map(c=>'<option value="'+c+'">').join('');}
-async function elaboraProforma(){var testo=document.getElementById('proforma-input').value.trim();var cliente=document.getElementById('proforma-cliente').value.trim();if(!testo){showToast('Incolla prima il messaggio');return;}var btn=document.getElementById('proforma-btn');btn.disabled=true;btn.textContent='⏳ Elaboro...';var invStr=inventario.map(a=>'- '+a.code+': '+a.desc+' | disp: '+a.qty).join('\n');var prompt='Sei un sistema magazzino italiano. Il cliente "'+cliente+'" ha scritto:\n"'+testo+'"\n\nInventario:\n'+invStr+'\n\nEstrai articoli. Rispondi SOLO JSON:\n[{"code":"CODICE","desc":"Desc","qty":NUM,"stato":"ok"|"scarso"|"mancante"}]';try{var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(localStorage.getItem('mag_apikey')||'')},body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:1000,messages:[{role:'user',content:prompt}]})});var data=await resp.json();var text=data.choices?.[0]?.message?.content||'';var items=JSON.parse(text.replace(/```json|```/g,'').trim());renderProforma(items,cliente);}catch(e){var demoItems=inventario.slice(0,4).map(a=>({code:a.code,desc:a.desc,qty:Math.floor(Math.random()*3)+1,stato:a.qty<5?'scarso':'ok'}));renderProforma(demoItems,cliente);showToast('⚠️ API non raggiungibile — mostro demo');}finally{btn.disabled=false;btn.textContent='✨ Genera Proforma';}}
-function renderProforma(items,cliente){var oggi=new Date().toLocaleDateString('it-IT');document.getElementById('proforma-result').style.display='block';document.getElementById('proforma-banner').innerHTML='';document.getElementById('proforma-cliente-label').textContent=cliente?'Cliente: '+cliente:'';document.getElementById('proforma-data-label').textContent='Data: '+oggi;document.getElementById('proforma-tbody').innerHTML=items.map((it,i)=>{var inv=inventario.find(a=>a.code===it.code);var disp=inv?inv.qty:0;var badge='';if(it.stato==='mancante')badge='<span style="font-size:12px;background:var(--danger);color:#fff;padding:2px 7px;border-radius:10px">Non in magazzino</span>';else if(it.stato==='scarso')badge='<span style="font-size:12px;background:var(--warn);color:#2e2e2e;padding:2px 7px;border-radius:10px">Scorta bassa</span>';return'<tr><td style="padding:10px 12px;font-size:12px">'+it.code+'</td><td style="padding:10px 12px;font-size:13px">'+it.desc+'</td><td style="padding:10px 12px;text-align:center"><input type="number" value="'+it.qty+'" min="0" id="pqty-proforma-'+i+'" style="width:56px;padding:4px 8px;background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:16px;text-align:center"></td><td style="padding:10px 12px;font-size:12px">'+(disp>0?disp+' disp.':'—')+'</td></tr>';}).join('');document.getElementById('proforma-items-json').value=JSON.stringify(items);}
+async function elaboraProforma(){
+  var testo=document.getElementById('proforma-input').value.trim();
+  var cliente=document.getElementById('proforma-cliente').value.trim();
+  if(!testo){showToast('Incolla prima il messaggio');return;}
+  var btn=document.getElementById('proforma-btn');btn.disabled=true;btn.textContent='⏳ Elaboro...';
+  var apiKey=localStorage.getItem('mag_apikey')||'';
+  if(!apiKey){showToast('⚠️ Chiave API mancante');btn.disabled=false;btn.textContent='✨ Genera Proforma';return;}
+  var invStr=inventario.map(function(a){return'- '+a.code+': '+a.desc;}).join('\n');
+  var prompt='Sei un assistente magazzino italiano. Analizza questo messaggio ordine WhatsApp.\n\nCliente: "'+(cliente||'non specificato')+'"\nMessaggio:\n"'+testo+'"\n\nINVENTARIO:\n'+invStr+'\n\nPer ogni articolo menzionato:\n- Abbina al codice inventario per nome/descrizione\n- Estrai la quantità richiesta\n- Se non trovi corrispondenza lascia code vuoto\n\nRispondi SOLO JSON array:\n[{"code":"","desc":"","qty":0}]';
+  try{
+    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:1500,temperature:0.1,messages:[{role:'user',content:prompt}]})});
+    var data=await resp.json();
+    if(!resp.ok)throw new Error(data.error?.message||resp.status);
+    var text=data.choices?.[0]?.message?.content||'';
+    var clean=text.replace(/```json|```/g,'').trim();
+    var jm=clean.match(/\[[\s\S]*\]/);
+    var aiItems=[];try{aiItems=JSON.parse(jm?jm[0]:clean);}catch(pe){throw new Error('Formato risposta AI non valido');}
+    var items=aiItems.map(function(it){
+      var art=null;
+      if(it.code)art=inventario.find(function(a){return a.code===it.code;})||inventario.find(function(a){return a.codeForn&&a.codeForn===it.code;});
+      if(!art&&it.desc&&typeof findArticolo==='function')art=findArticolo('',it.desc,'uscita');
+      if(!art&&it.desc&&typeof cercaArticolo==='function')art=cercaArticolo(it.desc);
+      var stato,dispLabel;
+      if(!art){stato='mancante';dispLabel='—';}
+      else if(art.qty>art.min){stato='ok';dispLabel=art.qty+' '+(art.udm||'ct');}
+      else if(art.qty>0){stato='scarso';dispLabel=art.qty+' '+(art.udm||'ct')+' (min '+art.min+')';}
+      else if(art.ordinato){stato='in_arrivo';dispLabel='In arrivo';}
+      else{stato='esaurito';dispLabel='Esaurito';}
+      return{code:art?art.code:(it.code||'?'),desc:art?art.desc:it.desc,qty:parseInt(it.qty)||1,stato:stato,dispLabel:dispLabel};
+    }).filter(function(it){return it.desc&&it.desc.length>1;});
+    if(items.length===0){showToast('⚠️ Nessun articolo trovato nel messaggio');return;}
+    renderProforma(items,cliente);
+  }catch(e){showToast('❌ '+e.message);}
+  finally{btn.disabled=false;btn.textContent='✨ Genera Proforma';}
+}
+function renderProforma(items,cliente){
+  var oggi=new Date().toLocaleDateString('it-IT');
+  document.getElementById('proforma-result').style.display='block';
+  document.getElementById('proforma-cliente-label').textContent=cliente?'Cliente: '+cliente:'';
+  document.getElementById('proforma-data-label').textContent='Data: '+oggi;
+  var scarsi=items.filter(function(it){return it.stato==='scarso';}).length;
+  var esauriti=items.filter(function(it){return it.stato==='esaurito';}).length;
+  var inArrivo=items.filter(function(it){return it.stato==='in_arrivo';}).length;
+  var mancanti=items.filter(function(it){return it.stato==='mancante';}).length;
+  var banner='';
+  if(esauriti>0||mancanti>0)banner+='<div style="background:rgba(240,62,62,.12);border:1px solid rgba(240,62,62,.3);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#f03e3e">'+(esauriti>0?'❌ '+esauriti+' esauriti':'')+((esauriti>0&&mancanti>0)?', ':'')+( mancanti>0?'❓ '+mancanti+' non in magazzino':'')+'</div>';
+  if(scarsi>0)banner+='<div style="background:rgba(245,197,24,.1);border:1px solid rgba(245,197,24,.3);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#f5c518">⚠️ '+scarsi+' con scorta bassa</div>';
+  if(inArrivo>0)banner+='<div style="background:rgba(144,205,244,.1);border:1px solid rgba(144,205,244,.3);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:13px;color:#90cdf4">🔄 '+inArrivo+' in arrivo dal fornitore</div>';
+  document.getElementById('proforma-banner').innerHTML=banner;
+  document.getElementById('proforma-tbody').innerHTML=items.map(function(it,i){
+    var badge='';
+    if(it.stato==='ok')badge='<span style="font-size:11px;background:rgba(62,207,110,.15);color:#3ecf6e;padding:2px 6px;border-radius:8px;font-weight:600">✅ OK</span>';
+    else if(it.stato==='scarso')badge='<span style="font-size:11px;background:rgba(245,197,24,.15);color:#f5c518;padding:2px 6px;border-radius:8px;font-weight:600">⚠️ Scorta bassa</span>';
+    else if(it.stato==='esaurito')badge='<span style="font-size:11px;background:rgba(240,62,62,.15);color:#f03e3e;padding:2px 6px;border-radius:8px;font-weight:600">❌ Esaurito</span>';
+    else if(it.stato==='in_arrivo')badge='<span style="font-size:11px;background:rgba(144,205,244,.15);color:#90cdf4;padding:2px 6px;border-radius:8px;font-weight:600">🔄 In arrivo</span>';
+    else badge='<span style="font-size:11px;background:rgba(240,62,62,.12);color:#f03e3e;padding:2px 6px;border-radius:8px;font-weight:600">❓ Non trovato</span>';
+    return'<tr style="border-bottom:1px solid var(--b2)"><td style="padding:10px 12px;font-size:11px;color:var(--tx2)">'+it.code+'</td><td style="padding:10px 12px;font-size:13px"><div>'+it.desc+'</div><div style="margin-top:4px">'+badge+'</div></td><td style="padding:10px 12px;text-align:center"><input type="number" value="'+it.qty+'" min="0" id="pqty-proforma-'+i+'" style="width:56px;padding:4px 8px;background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--tx);font-size:16px;text-align:center"></td><td style="padding:10px 12px;font-size:12px;color:var(--tx2)">'+it.dispLabel+'</td></tr>';
+  }).join('');
+  document.getElementById('proforma-items-json').value=JSON.stringify(items);
+}
 function applicaUscitaProforma(){var clienteUscita=document.getElementById('proforma-cliente').value.trim();var tbody=document.getElementById('proforma-tbody');if(!tbody||tbody.innerHTML==='')return;var now=new Date().toISOString();var aggiornati=0;document.querySelectorAll('#proforma-tbody tr').forEach(function(tr,i){var tds=tr.querySelectorAll('td');var code=tds[0]?tds[0].textContent.trim():'';var qtyEl=document.getElementById('pqty-proforma-'+i);var qty=parseInt(qtyEl?qtyEl.value:'0')||0;if(qty<=0)return;var art=inventario.find(a=>a.code===code);if(!art)return;art.qty=Math.max(0,art.qty-qty);movimenti.push({type:'uscita',code:art.code,desc:art.desc,qty,ts:now,cliente:clienteUscita||'',fornitore:art.fornitore||'',udm:art.udm||'cartoni'});archivioMovimenti.push({type:'uscita',code:art.code,desc:art.desc,qty,ts:now,cliente:clienteUscita||'',fornitore:art.fornitore||'',udm:art.udm||'cartoni'});aggiornati++;});if(aggiornati===0){showToast('Nessuna quantità');return;}saveData();updateStats();checkAlertDopoUscita();showToast('✓ '+aggiornati+' articoli scaricati');document.getElementById('proforma-result').style.display='none';document.getElementById('proforma-input').value='';document.getElementById('proforma-cliente').value='';}
 function stampaProforma(){var cliente=document.getElementById('proforma-cliente').value.trim()||'N/A';var oggi=new Date().toLocaleDateString('it-IT');var rows=[...document.querySelectorAll('#proforma-tbody tr')].map((tr,i)=>{var tds=tr.querySelectorAll('td');return'<tr><td style="padding:8px;border-bottom:1px solid #eee">'+(tds[0]?.textContent||'')+'</td><td style="padding:8px;border-bottom:1px solid #eee">'+(tds[1]?.textContent||'')+'</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:center;font-weight:bold">'+(document.getElementById('pqty-proforma-'+i)?.value||'')+'</td></tr>';}).join('');var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Proforma '+cliente+'</title><style>body{font-family:Arial,sans-serif;margin:40px}table{width:100%;border-collapse:collapse}th{background:#f5f5f5;padding:8px;text-align:left;font-size:11px;text-transform:uppercase;border-bottom:2px solid #ddd}</style></head><body><h1>Proforma DDT - '+cliente+'</h1><div style="color:#666;font-size:12px;margin-bottom:24px">Data: '+oggi+'</div><table><thead><tr><th>Codice</th><th>Articolo</th><th>Qtà</th></tr></thead><tbody>'+rows+'</tbody></table></body></html>';var w=window.open('','_blank');if(w){w.document.write(html);w.document.close();
   setTimeout(function(){
