@@ -744,10 +744,11 @@ async function elaboraProforma(){
   var btn=document.getElementById('proforma-btn');btn.disabled=true;btn.textContent='⏳ Elaboro...';
   var apiKey=localStorage.getItem('mag_apikey')||'';
   if(!apiKey){showToast('⚠️ Chiave API mancante');btn.disabled=false;btn.textContent='✨ Genera Proforma';return;}
-  // L'AI estrae SOLO nomi e quantità — il matching lo fa il codice locale
-  var prompt='Estrai articoli e quantità da questo messaggio ordine WhatsApp italiano.\nIgnora note come "x domani", "per domani", "urgente", date, orari, saluti.\n\nMessaggio:\n"'+testo+'"\n\nRispondi SOLO JSON array (una voce per articolo):\n[{"item":"nome articolo","qty":1}]';
+  // Inventario conciso per contesto AI
+  var invStr=inventario.map(function(a){return a.code+': '+a.desc;}).join('\n');
+  var prompt='Sei un assistente magazzino italiano PRECISO.\n\nMessaggio ordine WhatsApp:\n"'+testo+'"\n\nINVENTARIO:\n'+invStr+'\n\nCOMPITO:\n1. Estrai ogni articolo menzionato con la sua quantità\n2. Abbina semanticamente all\'inventario:\n   - Abbreviazioni: "sacchi verde"→cerca sacchi verdi, "spugna"→cerca spugna, "x le mani"="per le mani"\n   - Singolare/plurale: "bobina"→"bobine", "sacchetto"→"sacchetti"\n   - Ignora "x domani", "urgente", date, orari, saluti — NON sono articoli\n3. REGOLA CRITICA: se non sei sicuro al 70% lascia code vuoto ""\n4. NON abbinare categorie diverse (sacchi ≠ carta, spugna ≠ sapone)\n\nRispondi SOLO JSON:\n[{"item":"nome dal messaggio","code":"codice_inventario_o_vuoto","qty":1}]';
   try{
-    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:800,temperature:0.05,messages:[{role:'user',content:prompt}]})});
+    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:1000,temperature:0.05,messages:[{role:'user',content:prompt}]})});
     var data=await resp.json();
     if(!resp.ok)throw new Error(data.error?.message||resp.status);
     var text=data.choices?.[0]?.message?.content||'';
@@ -757,7 +758,11 @@ async function elaboraProforma(){
     var items=aiItems.map(function(it){
       var nome=(it.item||it.desc||it.name||'').trim();
       if(!nome)return null;
-      var art=matchArticoloFuzzy(nome);
+      // Prima prova il codice suggerito dall'AI (verificato localmente)
+      var art=null;
+      if(it.code){art=inventario.find(function(a){return a.code===it.code;})||inventario.find(function(a){return a.codeForn&&a.codeForn===it.code;});}
+      // Fallback: matching locale fuzzy se AI non ha trovato o ha sbagliato
+      if(!art)art=matchArticoloFuzzy(nome);
       var stato,dispLabel;
       if(!art){stato='mancante';dispLabel='—';}
       else if(art.qty>art.min){stato='ok';dispLabel=art.qty+' '+(art.udm||'ct');}
