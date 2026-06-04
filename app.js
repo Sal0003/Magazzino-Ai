@@ -81,6 +81,15 @@ function exportBackup(){
   showToast('✅ Backup scaricato: magazzAI_backup_'+oggi+'.json');
 }
 
+// iOS Safari richiede che i file input siano nel DOM prima del click
+function openFilePicker(input){
+  input.style.cssText='position:fixed;top:-100px;left:-100px;opacity:0;pointer-events:none;';
+  document.body.appendChild(input);
+  var orig=input.onchange;
+  input.onchange=function(e){if(document.body.contains(input))document.body.removeChild(input);if(orig)orig.call(this,e);};
+  input.click();
+}
+
 // === IMPORT JSON (ripristina backup) ===
 function importBackup(){
   var input=document.createElement('input');
@@ -137,7 +146,7 @@ function importBackup(){
     };
     reader.readAsText(file);
   };
-  input.click();
+  openFilePicker(input);
 }
 
 // === SVUOTA LOGHI (libera spazio, non tocca dati) ===
@@ -283,7 +292,7 @@ function refreshViste(){
 function getClienteProfilo(nome){return clientiProfili.find(c=>c.nome===nome)||{nome,logo:''};}
 function setLogoCliente(nome,logoDataUrl){compressImage(logoDataUrl,200,0.7).then(function(compressed){var c=clientiProfili.find(x=>x.nome===nome);if(c)c.logo=compressed;else clientiProfili.push({nome,logo:compressed});if(currentClienteEdit===nome)refreshClienteModal(nome);renderClienti();saveData();});}
 function removeLogoCliente(nome){var c=clientiProfili.find(x=>x.nome===nome);if(c)c.logo='';renderClienti();}
-function triggerLogoCliente(nome){var input=document.createElement('input');input.type='file';input.accept='image/*';input.onchange=e=>{var file=e.target.files[0];if(!file)return;var reader=new FileReader();reader.onload=ev=>setLogoCliente(nome,ev.target.result);reader.readAsDataURL(file)};input.click();}
+function triggerLogoCliente(nome){var input=document.createElement('input');input.type='file';input.accept='image/*';input.onchange=e=>{var file=e.target.files[0];if(!file)return;var reader=new FileReader();reader.onload=ev=>setLogoCliente(nome,ev.target.result);reader.readAsDataURL(file)};openFilePicker(input);}
 
 function openClienteModal(cliente,color){currentClienteEdit=cliente;refreshClienteModal(cliente,color);document.getElementById('modal-cliente').classList.add('active');}
 function refreshClienteModal(cliente,color){
@@ -482,7 +491,7 @@ async function importArticoliDaPDF(){
       addLog('\u274C '+err.message,1200);
       setTimeout(function(){if(procEl)procEl.classList.remove('active');showToast('Errore: '+err.message);},3000);
     }
-  };input.click();
+  };openFilePicker(input);
 }
 
 async function nuovoArticoloDaFoto(){
@@ -510,7 +519,7 @@ async function nuovoArticoloDaFoto(){
       showToast('\u274C '+err.message);
       openModal();
     }
-  };input.click();
+  };openFilePicker(input);
 }
 
 // ============================================================
@@ -698,7 +707,7 @@ function setEmailFornitore(nome,email){var f=fornitori.find(x=>x.nome===nome);if
 function openFornModal(forn,color){currentFornitoreEdit=forn;refreshFornModal(forn,color);document.getElementById('modal-fornitore').classList.add('active');}
 function refreshFornModal(forn,color){var fornObj=fornitori.find(f=>f.nome===forn)||{nome:forn,email:'',logo:''};var initials=forn.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);document.getElementById('mf-title').textContent=forn;document.getElementById('mf-nome').value=forn;document.getElementById('mf-email').value=fornObj.email||'';var preview=document.getElementById('mf-avatar-preview');if(fornObj.logo){preview.innerHTML='<img src="'+fornObj.logo+'" style="width:100%;height:100%;object-fit:contain">';preview.style.background='transparent';preview.style.border='1.5px solid var(--b2)';document.getElementById('mf-remove-logo').style.display='inline-flex';}else{preview.innerHTML=initials;preview.className='gp-avatar';preview.style.cssText='width:72px;height:72px;font-size:26px;cursor:pointer;--av-color:'+(color||'var(--accent)');document.getElementById('mf-remove-logo').style.display='none';}}
 function setLogoFornitore(nome,logoDataUrl){compressImage(logoDataUrl,200,0.7).then(function(compressed){var f=fornitori.find(x=>x.nome===nome);if(f)f.logo=compressed;else fornitori.push({nome,email:'',logo:compressed});if(currentFornitoreEdit===nome)refreshFornModal(nome);renderOrdini();renderFornitori();saveData();});}
-function triggerLogoUpload(nome){var input=document.createElement('input');input.type='file';input.accept='image/*';input.onchange=e=>{var file=e.target.files[0];if(!file)return;var reader=new FileReader();reader.onload=ev=>setLogoFornitore(nome,ev.target.result);reader.readAsDataURL(file);};input.click();}
+function triggerLogoUpload(nome){var input=document.createElement('input');input.type='file';input.accept='image/*';input.onchange=e=>{var file=e.target.files[0];if(!file)return;var reader=new FileReader();reader.onload=ev=>setLogoFornitore(nome,ev.target.result);reader.readAsDataURL(file);};openFilePicker(input);}
 function removeLogoFornitore(nome){var f=fornitori.find(x=>x.nome===nome);if(f)f.logo='';renderOrdini();renderFornitori();}
 
 // ============================================================
