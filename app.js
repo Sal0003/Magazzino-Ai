@@ -81,12 +81,24 @@ function exportBackup(){
   showToast('✅ Backup scaricato: magazzAI_backup_'+oggi+'.json');
 }
 
-// iOS Safari richiede che i file input siano nel DOM prima del click
+// iOS Safari richiede che i file input siano nel DOM prima del click.
+// IMPORTANTE: rimuovi l'input DOPO aver chiamato orig, non prima —
+// su iOS e.target.files si svuota se l'elemento viene rimosso prima del handler.
 function openFilePicker(input){
   input.style.cssText='position:fixed;top:-100px;left:-100px;opacity:0;pointer-events:none;';
   document.body.appendChild(input);
   var orig=input.onchange;
-  input.onchange=function(e){if(document.body.contains(input))document.body.removeChild(input);if(orig)orig.call(this,e);};
+  input.onchange=function(e){
+    var inp=input;
+    var result=orig?orig.call(this,e):null;
+    // Rimuovi dopo che il handler ha letto i file (sincrono) o dopo 1s (async)
+    if(result&&typeof result.then==='function'){
+      result.catch(function(err){showToast('❌ '+err.message);});
+      result.finally?result.finally(function(){if(document.body.contains(inp))document.body.removeChild(inp);}):setTimeout(function(){if(document.body.contains(inp))document.body.removeChild(inp);},1000);
+    }else{
+      if(document.body.contains(inp))document.body.removeChild(inp);
+    }
+  };
   input.click();
 }
 
