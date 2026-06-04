@@ -1411,9 +1411,19 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('./sw.js').then(function(reg){
       console.log('SW registrato:',reg.scope);
-      setInterval(function(){reg.update();},3600000);
+      // Check immediato all'avvio + ogni 30 minuti
+      reg.update();
+      setInterval(function(){reg.update();},1800000);
+      // Check ogni volta che l'app torna in foreground (da home screen iOS)
+      document.addEventListener('visibilitychange',function(){
+        if(document.visibilityState==='visible')reg.update();
+      });
     }).catch(function(err){
       console.warn('SW registrazione fallita:',err);
+    });
+    // Quando il nuovo SW prende il controllo → ricarica per usare i file aggiornati
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      window.location.reload();
     });
   });
 }
