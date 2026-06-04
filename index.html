@@ -1218,7 +1218,7 @@ importArticoliDaPDF=async function(){
         setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);
       }
     }else{
-      _b4ImportPDF.call(this);
+      await processFile(file,'foto');
     }
   };openFilePicker(input);
 };
