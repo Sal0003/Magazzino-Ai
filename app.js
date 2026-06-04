@@ -1421,9 +1421,12 @@ if('serviceWorker' in navigator){
     }).catch(function(err){
       console.warn('SW registrazione fallita:',err);
     });
-    // Quando il nuovo SW prende il controllo → ricarica per usare i file aggiornati
+    // Quando il nuovo SW prende il controllo → ricarica (doppio meccanismo per iOS)
     navigator.serviceWorker.addEventListener('controllerchange',function(){
       window.location.reload();
+    });
+    navigator.serviceWorker.addEventListener('message',function(e){
+      if(e.data&&e.data.type==='SW_UPDATED')window.location.reload();
     });
   });
 }
