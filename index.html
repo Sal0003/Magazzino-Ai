@@ -71,7 +71,7 @@
     <div class="kpi" style="padding:12px 14px;border-top-color:#f5c518;cursor:pointer;background:linear-gradient(145deg,#3a321e,var(--s2));border-color:rgba(245,197,24,.4)" onclick="showView('note')"><div class="kpi-label" style="font-size:10px">Note</div><div class="kpi-value" id="kpi-note-sospeso" style="font-size:34px;color:#f5c518">0</div><div class="kpi-sub">sospeso</div></div>
   </div>
   <div id="alerts-container"></div>
-  <div style="text-align:right;font-size:10px;color:#555;margin-top:4px;padding-right:4px">v36</div>
+  <div style="text-align:right;font-size:10px;color:#555;margin-top:4px;padding-right:4px">v37</div>
   <div class="section-head" style="margin-top:18px"><div class="section-title">Ultimi movimenti</div><button class="btn-small" onclick="showView('report')" style="background:#383838;border:1px solid #333;color:#f0f0f0;font-size:12px;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px">📈 Report</button></div>
   <div class="mov-list" id="dash-movimenti"><div class="empty-state"><div class="empty-icon">📋</div><p>Nessun movimento ancora.<br>Carica una bolla per iniziare.</p></div></div>
 </div>
@@ -284,14 +284,15 @@ processFile=async function(file,type){
   var procEl=document.getElementById('ai-proc-'+(isUscita?'uscita':'entrata'));
   var logEl=document.getElementById('ai-log-'+(isUscita?'uscita':'entrata'));
   procEl.classList.add('active');logEl.innerHTML='';
+  try{procEl.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}
   var addLog=function(msg,delay){setTimeout(function(){var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);},delay||0);};
   addLog('File: '+file.name,0);
   var ext=file.name.split('.').pop().toLowerCase();
-  if(['dng','raw','cr2','nef','arw','orf','rw2'].indexOf(ext)!==-1){addLog('\u274C Formato RAW non supportato.',400);setTimeout(function(){procEl.classList.remove('active');},2000);return;}
+  if(['dng','raw','cr2','nef','arw','orf','rw2'].indexOf(ext)!==-1){addLog('\u274C Formato RAW non supportato.',400);showToast('\u274C Formato RAW non supportato');setTimeout(function(){procEl.classList.remove('active');},2000);return;}
   var apiKey=localStorage.getItem('mag_apikey')||'';
-  if(!apiKey){addLog('\u26A0 Chiave API mancante!',400);procEl.classList.remove('active');return;}
+  if(!apiKey){addLog('\u26A0 Chiave API mancante!',400);procEl.classList.remove('active');showToast('\u26A0 Chiave API mancante! Aggiungila in Impostazioni');return;}
   var isImage=file.type.startsWith('image/');
-  if(!isImage){addLog('\u26A0 Scatta una foto al documento.',400);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
+  if(!isImage){addLog('\u26A0 Scatta una foto al documento.',400);showToast('\u26A0 Usa una foto, non un PDF');setTimeout(function(){procEl.classList.remove('active');},3000);return;}
   try{
     addLog('Comprimo immagine...',300);
     var dataUrl=await compressForAPI(file,1280,0.7);
@@ -300,22 +301,23 @@ processFile=async function(file,type){
     addLog('Modello: llama-4-scout (vision)',900);
     var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',max_tokens:2000,temperature:0.05,messages:[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:dataUrl}}]}]})});
     var data=await resp.json();
-    if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
+    if(!resp.ok){var _errMsg=data.error?.message||resp.status;addLog('\u274C '+_errMsg,1200);showToast('\u274C Errore AI: '+_errMsg);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
     var rawText=data.choices?.[0]?.message?.content||'';
     addLog('Risposta ('+rawText.length+' car.)',1200);
     addLog(rawText.substring(0,200),1400);
     var clean=rawText.replace(/```json|```/g,'').trim();
     var jsonMatch=clean.match(/\{[\s\S]*\}/);
-    if(!jsonMatch){var arrMatch=clean.match(/\[[\s\S]*\]/);if(arrMatch){try{var arr=JSON.parse(arrMatch[0]);if(arr.length>0){setTimeout(function(){procEl.classList.remove('active');showConfirm(arr,isUscita?'uscita':'entrata');},2200);return;}}catch(e){}}addLog('\u274C Nessun JSON',1600);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
-    var parsed;try{parsed=JSON.parse(jsonMatch[0]);}catch(pe){addLog('\u274C JSON error',1600);setTimeout(function(){procEl.classList.remove('active');},3000);return;}
+    if(!jsonMatch){var arrMatch=clean.match(/\[[\s\S]*\]/);if(arrMatch){try{var arr=JSON.parse(arrMatch[0]);if(arr.length>0){showToast('\u2705 '+arr.length+' articoli. Conferma qui sotto!');setTimeout(function(){procEl.classList.remove('active');showConfirm(arr,isUscita?'uscita':'entrata');try{var _cp=document.getElementById('confirm-'+(isUscita?'uscita':'entrata'));if(_cp)_cp.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}},2200);return;}}catch(e){}}addLog('\u274C Nessun JSON',1600);showToast('\u274C Risposta AI non valida');setTimeout(function(){procEl.classList.remove('active');},3000);return;}
+    var parsed;try{parsed=JSON.parse(jsonMatch[0]);}catch(pe){addLog('\u274C JSON error',1600);showToast('\u274C Errore lettura risposta AI');setTimeout(function(){procEl.classList.remove('active');},3000);return;}
     var items=parsed.articoli||parsed.items||[];var fornitore=parsed.fornitore||'';var destinatario=parsed.destinatario||'';var destinazione=parsed.destinazione||'';
-    if(items.length===0){addLog('\u26A0 Nessun articolo',1600);setTimeout(function(){procEl.classList.remove('active');},2500);return;}
+    if(items.length===0){addLog('\u26A0 Nessun articolo',1600);showToast('\u26A0 Nessun articolo trovato nel documento');setTimeout(function(){procEl.classList.remove('active');},2500);return;}
     var clienteFinale=destinazione||destinatario||'';
     items=items.map(function(it){var q=parseInt(it.qty)||parseInt(it.colli)||parseInt(it.qtyPeso)||0;var desc=it.desc||'';if(it.formato&&it.formato!=='?'&&desc.indexOf(it.formato)===-1)desc+=' '+it.formato;desc=desc.replace(/\n/g,' ').replace(/\s+/g,' ').trim();var cr=it.cliente_riga||'';if(cr==='?')cr='';var udm=it.udm||'';if(udm)udm=udm.toLowerCase().replace('.','');return{code:it.code||'',desc:desc,qty:q,fornitore:fornitore,cliente:cr||clienteFinale,udm:udm};}).filter(function(it){return it.desc&&it.desc!=='?'&&it.desc.length>2;});
     addLog('\u2705 '+items.length+' articoli'+(fornitore?' - '+fornitore:''),1600);
     items.forEach(function(it,i){addLog((i+1)+'. '+it.desc+' | '+it.qty+' colli',1800+i*100);});
-    setTimeout(function(){procEl.classList.remove('active');if(items.length>0)showConfirm(items,isUscita?'uscita':'entrata');},2200+items.length*100);
-  }catch(err){addLog('\u274C '+err.message,1200);setTimeout(function(){procEl.classList.remove('active');},2500);}
+    showToast('\u2705 '+items.length+' articoli trovati! Conferma qui sotto.');
+    setTimeout(function(){procEl.classList.remove('active');if(items.length>0){showConfirm(items,isUscita?'uscita':'entrata');try{var _cp2=document.getElementById('confirm-'+(isUscita?'uscita':'entrata'));if(_cp2)_cp2.scrollIntoView({behavior:'smooth',block:'start'});}catch(e){}}},2200+items.length*100);
+  }catch(err){addLog('\u274C '+err.message,1200);showToast('\u274C Errore elaborazione: '+err.message);setTimeout(function(){procEl.classList.remove('active');},2500);}
 };
 nuovoArticoloDaFoto=async function(){var input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.capture='environment';input.onchange=async function(e){var file=e.target.files[0];if(!file)return;showToast('Analizzo...');var apiKey=localStorage.getItem('mag_apikey');if(!apiKey){showToast('Chiave API mancante');return;}try{var dataUrl=await compressForAPI(file,1280,0.7);var text=await callGroqVision(apiKey,dataUrl,'Foto prodotto/cartone. Estrai info visibili. TRASCRIVI ESATTAMENTE. JSON: {"code":"","desc":"","fornitore":"","qty":""}');var clean=text.replace(/```json|```/g,'').trim();var m=clean.match(/\{[^}]+\}/);if(!m)throw new Error('No data');var info=JSON.parse(m[0]);document.getElementById('new-code').value=info.code||'';document.getElementById('new-desc').value=info.desc||'';document.getElementById('new-fornitore').value=info.fornitore||'';if(info.qty)document.getElementById('new-qty').value=info.qty;openModal();showToast('\u2705 Precompilato!');}catch(err){showToast('\u274C '+err.message);openModal();}};openFilePicker(input);};
 importArticoliDaPDF=async function(){var input=document.createElement('input');input.type='file';input.accept='.pdf,image/jpeg,image/png';input.onchange=async function(e){var file=e.target.files[0];if(!file)return;var procEl=document.getElementById('ai-proc-entrata');var logEl=document.getElementById('ai-log-entrata');if(procEl)procEl.classList.add('active');if(logEl)logEl.innerHTML='';var addLog=function(msg,delay){setTimeout(function(){if(logEl){var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);}},delay||0);};addLog('File: '+file.name,0);var apiKey=localStorage.getItem('mag_apikey');if(!apiKey){addLog('\u26A0 API mancante',400);if(procEl)procEl.classList.remove('active');return;}try{var isImage=file.type.startsWith('image/');if(!isImage){addLog('\u26A0 Scatta foto al doc',400);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}var dataUrl=await compressForAPI(file,1280,0.7);addLog('Invio AI...',800);var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',max_tokens:2000,temperature:0.05,messages:[{role:'user',content:[{type:'text',text:'OCR magazzino italiano. Estrai prodotti. TRASCRIVI ESATTAMENTE. JSON: [{"code":"","desc":"","qty":0,"fornitore":""}]'},{type:'image_url',image_url:{url:dataUrl}}]}]})});var data=await resp.json();if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}var text=data.choices?.[0]?.message?.content||'';var clean=text.replace(/```json|```/g,'').trim();var jm=clean.match(/\[[\s\S]*\]/);var items=[];try{items=JSON.parse(jm?jm[0]:clean);}catch(pe){}if(items.length===0){addLog('\u26A0 Nessun articolo',1600);setTimeout(function(){if(procEl)procEl.classList.remove('active');},2500);return;}var nuovi=0,agg=0;items.forEach(function(it){if(!it.desc&&!it.code)return;var ex=cercaArticolo(it.code||it.desc);if(ex){if(it.qty>0){ex.qty+=parseInt(it.qty)||0;agg++;}}else{var code=it.code||('NEW-'+Date.now()+'-'+(nuovi+1));var forn=it.fornitore||'';if(forn&&!fornitori.find(function(f){return f.nome===forn;}))fornitori.push({nome:forn,email:'',logo:''});inventario.push({id:nextId++,code:code,codeForn:'',desc:it.desc||code,cat:'Altro',fornitore:forn,cliente:'',qty:parseInt(it.qty)||0,min:5,preOrdine:7,udm:'cartoni',pezziPerCartone:0,_incompleto:true});nuovi++;}});saveData();updateStats();popolaDatalistUscita();addLog('\u2705 '+nuovi+' nuovi + '+agg+' agg.',1600);setTimeout(function(){if(procEl)procEl.classList.remove('active');showToast('\u2705 '+nuovi+' registrati');showView('inventario');},2500);}catch(err){addLog('\u274C '+err.message,1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);}};openFilePicker(input);};
@@ -1167,27 +1169,30 @@ importArticoliDaPDF=async function(){
       var logEl=document.getElementById('ai-log-entrata');
       if(procEl)procEl.classList.add('active');
       if(logEl)logEl.innerHTML='';
+      try{if(procEl)procEl.scrollIntoView({behavior:'smooth',block:'nearest'});}catch(e){}
       var addLog=function(msg,delay){setTimeout(function(){if(logEl){var d=document.createElement('div');d.textContent=msg;logEl.appendChild(d);}},delay||0);};
-      
+
       addLog('PDF: '+file.name,0);
       var apiKey=localStorage.getItem('mag_apikey');
-      if(!apiKey){addLog('\u26A0 API mancante',400);if(procEl)procEl.classList.remove('active');return;}
-      
+      if(!apiKey){addLog('\u26A0 API mancante',400);showToast('\u26A0 Chiave API mancante! Aggiungila in Impostazioni');if(procEl)procEl.classList.remove('active');return;}
+
       try{
         addLog('Estraggo testo...',400);
+        showToast('\u23F3 Leggo PDF...');
         var pages=await extractTextFromPDF(file);
         var pdfText=pages.join('\n--- NUOVA PAGINA ---\n');
-        if(!pdfText||pdfText.length<10){addLog('\u26A0 PDF vuoto',800);if(procEl)procEl.classList.remove('active');return;}
+        if(!pdfText||pdfText.length<10){addLog('\u26A0 PDF vuoto',800);showToast('\u26A0 PDF vuoto o non leggibile');if(procEl)procEl.classList.remove('active');return;}
         addLog(pages.length+' pagine. Invio AI...',800);
-        
+        showToast('\u23F3 '+pages.length+' pagine, analizzo con AI...');
+
         var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
           body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:4000,temperature:0.05,
             messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+pdfText.substring(0,6000)}]})
         });
         var data=await resp.json();
-        if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
-        
+        if(!resp.ok){var _e=data.error?.message||resp.status;addLog('\u274C '+_e,1200);showToast('\u274C Errore AI: '+_e);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
+
         var text=data.choices?.[0]?.message?.content||'';
         var clean=text.replace(/```json|```/g,'').trim();
         var jm=clean.match(/\[[\s\S]*\]/);
@@ -1196,7 +1201,7 @@ importArticoliDaPDF=async function(){
           try{ddtList=[JSON.parse(jm2?jm2[0]:clean)];}catch(pe2){ddtList=[];}
         }
         if(!Array.isArray(ddtList))ddtList=[ddtList];
-        
+
         var nuovi=0,agg=0;
         ddtList.forEach(function(ddt){
           var forn=ddt.fornitore||'';
@@ -1215,12 +1220,14 @@ importArticoliDaPDF=async function(){
         });
         saveData();updateStats();popolaDatalistUscita();
         addLog('\u2705 '+nuovi+' nuovi + '+agg+' agg.',1600);
-        setTimeout(function(){if(procEl)procEl.classList.remove('active');showToast('\u2705 '+nuovi+' registrati');showView('inventario');},2500);
+        setTimeout(function(){if(procEl)procEl.classList.remove('active');showToast('\u2705 '+nuovi+' nuovi, '+agg+' aggiornati');showView('inventario');},2500);
       }catch(err){
         addLog('\u274C '+err.message,1200);
+        showToast('\u274C '+err.message);
         setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);
       }
     }else{
+      showToast('\u23F3 Analizzo foto...');
       await processFile(file,'foto');
     }
     }catch(err){showToast('❌ '+err.message);console.error('importDoc error:',err);}
