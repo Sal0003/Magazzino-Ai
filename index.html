@@ -71,7 +71,7 @@
     <div class="kpi" style="padding:12px 14px;border-top-color:#f5c518;cursor:pointer;background:linear-gradient(145deg,#3a321e,var(--s2));border-color:rgba(245,197,24,.4)" onclick="showView('note')"><div class="kpi-label" style="font-size:10px">Note</div><div class="kpi-value" id="kpi-note-sospeso" style="font-size:34px;color:#f5c518">0</div><div class="kpi-sub">sospeso</div></div>
   </div>
   <div id="alerts-container"></div>
-  <div style="text-align:right;font-size:10px;color:#555;margin-top:4px;padding-right:4px">v39</div>
+  <div style="text-align:right;font-size:10px;color:#555;margin-top:4px;padding-right:4px">v40</div>
   <div class="section-head" style="margin-top:18px"><div class="section-title">Ultimi movimenti</div><button class="btn-small" onclick="showView('report')" style="background:#383838;border:1px solid #333;color:#f0f0f0;font-size:12px;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px">📈 Report</button></div>
   <div class="mov-list" id="dash-movimenti"><div class="empty-state"><div class="empty-icon">📋</div><p>Nessun movimento ancora.<br>Carica una bolla per iniziare.</p></div></div>
 </div>
@@ -1086,6 +1086,40 @@ parsePdfQty=function(val){
 
 var PDF_PROMPT='Sei un sistema PRECISO per bolle/DDT italiani.\nQuesto PDF contiene UNO O PIU\' documenti di trasporto (DDT).\n\nPer OGNI DDT separato nel testo, estrai:\n- fornitore: chi EMETTE il documento (intestazione in alto)\n- destinazione_nome: solo il NOME dell\'attivita/locale nella sezione "Destinazione" (es. "Bar Sant\'Ambrogio", NON l\'indirizzo)\n- destinatario_nome: solo il NOME dell\'azienda nella sezione "Destinatario" (es. "Pokito di Daniele...")\n- articoli con: code, desc, qty (NUMERO INTERO — 1.000 = mille), udm (ESATTA: Conf, Coppia, Rotoli, pz, kg, Colli)\n\nATTENZIONE NUMERI: In italiano il PUNTO e\' separatore migliaia. 1.000 = mille, NON uno.\n\nRispondi SOLO con JSON array di DDT:\n[{"fornitore":"","destinazione_nome":"","destinatario_nome":"","articoli":[{"code":"","desc":"","qty":0,"udm":""}]}]';
 
+// Chunked PDF→AI: split testo in blocchi da 18.000 car. (safe per free tier 12K TPM con 4K output)
+var callPdfAI=async function(apiKey,pdfText,onProgress){
+  var SAFE=18000;
+  var segs=pdfText.split('\n--- NUOVA PAGINA ---\n');
+  var chunks=[];var cur=[];var curL=0;
+  segs.forEach(function(pg){
+    if(curL+pg.length>SAFE&&cur.length>0){chunks.push(cur.join('\n--- NUOVA PAGINA ---\n'));cur=[];curL=0;}
+    cur.push(pg);curL+=pg.length;
+  });
+  if(cur.length>0)chunks.push(cur.join('\n--- NUOVA PAGINA ---\n'));
+  var allDdt=[];
+  for(var ci=0;ci<chunks.length;ci++){
+    if(onProgress)onProgress(ci+1,chunks.length);
+    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:4000,temperature:0.05,
+        messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+chunks[ci]}]})
+    });
+    var data=await resp.json();
+    if(!resp.ok)throw new Error(data.error?.message||String(resp.status));
+    var text=data.choices?.[0]?.message?.content||'';
+    var clean=text.replace(/```json|```/g,'').trim();
+    var jm=clean.match(/\[[\s\S]*\]/);
+    var ddt=[];
+    try{ddt=JSON.parse(jm?jm[0]:clean);}catch(pe){
+      var jm2=clean.match(/\{[\s\S]*\}/);
+      try{ddt=[JSON.parse(jm2?jm2[0]:clean)];}catch(pe2){}
+    }
+    if(!Array.isArray(ddt))ddt=[ddt];
+    allDdt=allDdt.concat(ddt.filter(Boolean));
+  }
+  return allDdt;
+};
+
 // Override processFile — PDF multi-DDT
 var _b4ProcessFile=processFile;
 processFile=async function(file,type){
@@ -1109,24 +1143,10 @@ processFile=async function(file,type){
     var pdfText=pages.join('\n--- NUOVA PAGINA ---\n');
     if(!pdfText||pdfText.length<10){addLog('\u26A0 PDF vuoto o non leggibile',800);if(procEl)procEl.classList.remove('active');return;}
     addLog(pages.length+' pagine, '+pdfText.length+' car. Invio AI...',800);
-    
-    var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-      body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:8000,temperature:0.05,
-        messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+pdfText.substring(0,60000)}]})
+    var ddtList=await callPdfAI(apiKey,pdfText,function(ci,tot){
+      if(tot>1){addLog('Parte '+ci+'/'+tot+'...',200);showToast('\u23F3 Parte '+ci+'/'+tot+'...');}
     });
-    var data=await resp.json();
-    if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
-    
-    var text=data.choices?.[0]?.message?.content||'';
     addLog('Risposta ricevuta, elaboro...',1200);
-    var clean=text.replace(/```json|```/g,'').trim();
-    var jm=clean.match(/\[[\s\S]*\]/);
-    var ddtList;try{ddtList=JSON.parse(jm?jm[0]:clean);}catch(pe){
-      var jm2=clean.match(/\{[\s\S]*\}/);
-      try{ddtList=[JSON.parse(jm2?jm2[0]:clean)];}catch(pe2){addLog('\u26A0 Parsing fallito',1600);if(procEl)procEl.classList.remove('active');return;}
-    }
-    if(!Array.isArray(ddtList))ddtList=[ddtList];
     
     var allItems=[];
     ddtList.forEach(function(ddt){
@@ -1184,23 +1204,9 @@ importArticoliDaPDF=async function(){
         if(!pdfText||pdfText.length<10){addLog('\u26A0 PDF vuoto',800);showToast('\u26A0 PDF vuoto o non leggibile');if(procEl)procEl.classList.remove('active');return;}
         addLog(pages.length+' pagine, '+pdfText.length+' car. Invio AI...',800);
         showToast('\u23F3 '+pages.length+' pag. / '+pdfText.length+' car. \u2014 analizzo...');
-
-        var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-          method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-          body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:8000,temperature:0.05,
-            messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+pdfText.substring(0,60000)}]})
+        var ddtList=await callPdfAI(apiKey,pdfText,function(ci,tot){
+          if(tot>1){addLog('Parte '+ci+'/'+tot+'...',200);showToast('\u23F3 Parte '+ci+'/'+tot+'...');}
         });
-        var data=await resp.json();
-        if(!resp.ok){var _e=data.error?.message||resp.status;addLog('\u274C '+_e,1200);showToast('\u274C Errore AI: '+_e);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
-
-        var text=data.choices?.[0]?.message?.content||'';
-        var clean=text.replace(/```json|```/g,'').trim();
-        var jm=clean.match(/\[[\s\S]*\]/);
-        var ddtList;try{ddtList=JSON.parse(jm?jm[0]:clean);}catch(pe){
-          var jm2=clean.match(/\{[\s\S]*\}/);
-          try{ddtList=[JSON.parse(jm2?jm2[0]:clean)];}catch(pe2){ddtList=[];}
-        }
-        if(!Array.isArray(ddtList))ddtList=[ddtList];
 
         var allItems=[];
         ddtList.forEach(function(ddt){
