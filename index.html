@@ -71,7 +71,7 @@
     <div class="kpi" style="padding:12px 14px;border-top-color:#f5c518;cursor:pointer;background:linear-gradient(145deg,#3a321e,var(--s2));border-color:rgba(245,197,24,.4)" onclick="showView('note')"><div class="kpi-label" style="font-size:10px">Note</div><div class="kpi-value" id="kpi-note-sospeso" style="font-size:34px;color:#f5c518">0</div><div class="kpi-sub">sospeso</div></div>
   </div>
   <div id="alerts-container"></div>
-  <div style="text-align:right;font-size:10px;color:#555;margin-top:4px;padding-right:4px">v38</div>
+  <div style="text-align:right;font-size:10px;color:#555;margin-top:4px;padding-right:4px">v39</div>
   <div class="section-head" style="margin-top:18px"><div class="section-title">Ultimi movimenti</div><button class="btn-small" onclick="showView('report')" style="background:#383838;border:1px solid #333;color:#f0f0f0;font-size:12px;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px">📈 Report</button></div>
   <div class="mov-list" id="dash-movimenti"><div class="empty-state"><div class="empty-icon">📋</div><p>Nessun movimento ancora.<br>Carica una bolla per iniziare.</p></div></div>
 </div>
@@ -1112,8 +1112,8 @@ processFile=async function(file,type){
     
     var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-      body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:4000,temperature:0.05,
-        messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+pdfText.substring(0,6000)}]})
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:8000,temperature:0.05,
+        messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+pdfText.substring(0,60000)}]})
     });
     var data=await resp.json();
     if(!resp.ok){addLog('\u274C '+(data.error?.message||resp.status),1200);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
@@ -1182,13 +1182,13 @@ importArticoliDaPDF=async function(){
         var pages=await extractTextFromPDF(file);
         var pdfText=pages.join('\n--- NUOVA PAGINA ---\n');
         if(!pdfText||pdfText.length<10){addLog('\u26A0 PDF vuoto',800);showToast('\u26A0 PDF vuoto o non leggibile');if(procEl)procEl.classList.remove('active');return;}
-        addLog(pages.length+' pagine. Invio AI...',800);
-        showToast('\u23F3 '+pages.length+' pagine, analizzo con AI...');
+        addLog(pages.length+' pagine, '+pdfText.length+' car. Invio AI...',800);
+        showToast('\u23F3 '+pages.length+' pag. / '+pdfText.length+' car. \u2014 analizzo...');
 
         var resp=await fetch('https://api.groq.com/openai/v1/chat/completions',{
           method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-          body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:4000,temperature:0.05,
-            messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+pdfText.substring(0,6000)}]})
+          body:JSON.stringify({model:'llama-3.3-70b-versatile',max_tokens:8000,temperature:0.05,
+            messages:[{role:'user',content:PDF_PROMPT+'\n\nTESTO PDF:\n'+pdfText.substring(0,60000)}]})
         });
         var data=await resp.json();
         if(!resp.ok){var _e=data.error?.message||resp.status;addLog('\u274C '+_e,1200);showToast('\u274C Errore AI: '+_e);setTimeout(function(){if(procEl)procEl.classList.remove('active');},3000);return;}
