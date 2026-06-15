@@ -937,10 +937,9 @@ AZIONI DISPONIBILI — quando devi eseguire un'azione, rispondi SOLO con JSON (n
 {"azione":"NOME","params":{...},"risposta":"testo da dire a voce"}
 
 REGOLA PEZZI/CARTONI:
-- Se l'utente dice "pezzi" → usa unitType:"pezzi" nei params. Scarica/carica singoli pezzi.
-- Se l'utente dice "cartoni" → usa unitType:"cartoni" nei params. Scarica/carica cartoni interi.
-- Se l'utente dice solo un numero senza specificare (es. "scarica 2 di pellicola"), CHIEDI: "Intendi 2 cartoni o 2 pezzi?"
-- NON assumere MAI che "2" significhi cartoni — chiedi SEMPRE se non è specificato.
+- Se l'utente dice "pezzi" → usa unitType:"pezzi". Se dice "cartoni" → usa unitType:"cartoni".
+- Se l'utente non specifica: guarda l'inventario. Se l'articolo ha pz/ct impostato (campo pezziPerCartone) E la qty è ambigua, chiedi UNA sola volta. Altrimenti usa l'UdM principale dell'articolo senza fare domande.
+- Accetta qualsiasi unità: confezioni, rotoli, kg, coppie, colli. Se l'utente dice "confezioni" usa unitType:"confezioni" ecc.
 
 1. scarica_articolo — params: {articolo:"nome/codice", qty:numero, cliente:"nome", unitType:"cartoni|pezzi"} — scala dal magazzino
 2. carica_articolo — params: {articolo:"nome/codice", qty:numero, fornitore:"nome", unitType:"cartoni|pezzi"} — aggiunge al magazzino
@@ -1036,7 +1035,8 @@ if(azione==='cerca_articolo'){
   var query=(params.query||'').toLowerCase();
   var trovati=cercaArticoliMultipli(query,6);
   if(trovati.length===0)return'Nessun articolo trovato per "'+params.query+'".';
-  return trovati.slice(0,6).map(a=>{var pzInfo=a.pezziPerCartone>0?' ('+getTotalPezzi(a)+' pz tot, '+(a.pezziSfusi||0)+' sfusi)':'';return a.desc+': '+a.qty+' '+getUdm(a)+pzInfo+(a.qty<=a.min?' ⚠️':'');}).join('. ')+'.';}
+  if(trovati.length===1){var a=trovati[0];var pzInfo=a.pezziPerCartone>0?', '+getTotalPezzi(a)+' pezzi totali':'';return a.desc+': '+a.qty+' '+getUdm(a)+pzInfo+(a.qty<=a.min?' — attenzione, sotto scorta!':'')+'.';}
+  return'Trovati '+trovati.length+' articoli: '+trovati.slice(0,3).map(function(a){return a.desc+' '+a.qty+' '+getUdm(a)+(a.qty<=a.min?' ⚠️':'');}).join(', ')+(trovati.length>3?', e altri.':'.')+' Quale intendi?';}
 
 if(azione==='stato_magazzino'){
   var critici=inventario.filter(a=>a.qty<=a.min);
@@ -1182,7 +1182,7 @@ function ginoParla(testo){if(!window.speechSynthesis)return;window.speechSynthes
 function doSpeak(){
   var voci=window.speechSynthesis.getVoices();
   var utterance=new SpeechSynthesisUtterance(testo);
-  utterance.lang='it-IT';utterance.rate=0.9;utterance.pitch=0.85;utterance.volume=1.0;
+  utterance.lang='it-IT';utterance.rate=1.05;utterance.pitch=0.85;utterance.volume=1.0;
   // Cerca voce maschile italiana - prima Luca specificamente
   var voce=null;
   for(var i=0;i<voci.length;i++){
@@ -1246,7 +1246,7 @@ if(ginoPendingAction&&(t==='no'||t==='annulla'||t==='lascia stare'||t==='niente'
   ginoHistory.push({role:'user',content:msg});ginoHistory.push({role:'assistant',content:r});return;}
 ginoPendingAction=null;
 
-var needContext=ginoHistory.length===0||ginoHistory.length%10===0;
+var needContext=ginoHistory.length===0||ginoHistory.length%4===0;
 var msgConContesto=needContext?buildInventarioTesto()+'\n\nRICHIESTA UTENTE: '+msg:msg;
 ginoHistory.push({role:'user',content:msgConContesto});
 
@@ -1263,8 +1263,8 @@ try{
     body:JSON.stringify({
       model:'llama-3.3-70b-versatile',
       messages:[{role:'system',content:buildGinoSystem()}].concat(ginoHistory.slice(-12)),
-      max_tokens:400,
-      temperature:0.3
+      max_tokens:600,
+      temperature:0.1
     })
   });
   var data=await resp.json();
