@@ -1246,8 +1246,7 @@ if(ginoPendingAction&&(t==='no'||t==='annulla'||t==='lascia stare'||t==='niente'
   ginoHistory.push({role:'user',content:msg});ginoHistory.push({role:'assistant',content:r});return;}
 ginoPendingAction=null;
 
-var needContext=ginoHistory.length===0||ginoHistory.length%4===0;
-var msgConContesto=needContext?buildInventarioTesto()+'\n\nRICHIESTA UTENTE: '+msg:msg;
+var msgConContesto=msg;
 ginoHistory.push({role:'user',content:msgConContesto});
 
 var chat=document.getElementById('gino-chat');
