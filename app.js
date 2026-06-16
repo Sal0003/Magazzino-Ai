@@ -15,8 +15,24 @@ function cercaArticolo(query){
   // 4. Match parole singole (tutte le parole devono matchare)
   var words=q.split(/\s+/);
   if(words.length>1){var multi=inventario.find(a=>{var d=a.desc.toLowerCase();return words.every(w=>d.indexOf(w)!==-1);});if(multi)return multi;}
-  // 5. Match fuzzy - almeno 3 caratteri consecutivi
-  if(q.length>=3){var fuzzy=inventario.find(a=>a.desc.toLowerCase().indexOf(q.substring(0,3))!==-1);if(fuzzy)return fuzzy;}
+  // 4b. Match per radice — gestisce singolare/plurale italiano (es. "tovagliolo"→"tovaglioli")
+  if(words.length>=1){
+    var _sp=function(a,b){var i=0,l=Math.min(a.length,b.length);while(i<l&&a[i]===b[i])i++;return i;};
+    var stemHit=inventario.find(function(a){
+      var dw=a.desc.toLowerCase().split(/[\s\-\/,x\.]+/).filter(function(w){return w.length>=2;});
+      var hit=words.filter(function(qw){
+        if(qw.length<=3)return dw.some(function(d){return d.startsWith(qw)||qw.startsWith(d);});
+        return dw.some(function(d){return _sp(qw,d)/Math.max(qw.length,d.length)>=0.78;});
+      });
+      return hit.length>=Math.max(1,Math.ceil(words.length*0.6));
+    });
+    if(stemHit)return stemHit;
+  }
+  // 5. Match fuzzy con word boundary — evita "sottovuoto" per query "tov..."
+  if(q.length>=3){
+    var qPre=q.substring(0,Math.min(q.length,5)).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    try{var wbRe=new RegExp('\\b'+qPre,'i');var wbFuzzy=inventario.find(function(a){return wbRe.test(a.desc);});if(wbFuzzy)return wbFuzzy;}catch(e){}
+  }
   return null;
 }
 function cercaArticoliMultipli(query,max){
