@@ -75,7 +75,7 @@
     <div class="kpi" style="padding:12px 14px;border-top-color:#f5c518;cursor:pointer;background:linear-gradient(145deg,#3a321e,var(--s2));border-color:rgba(245,197,24,.4)" onclick="showView('note')"><div class="kpi-label" style="font-size:10px">Note</div><div class="kpi-value" id="kpi-note-sospeso" style="font-size:34px;color:#f5c518">0</div><div class="kpi-sub">sospeso</div></div>
   </div>
   <div id="alerts-container"></div>
-  <div style="text-align:right;font-size:10px;color:#555;margin-top:4px;padding-right:4px">v46</div>
+  <div style="text-align:right;font-size:10px;color:#555;margin-top:4px;padding-right:4px">v47</div>
   <div class="section-head" style="margin-top:18px"><div class="section-title">Ultimi movimenti</div><button class="btn-small" onclick="showView('report')" style="background:#383838;border:1px solid #333;color:#f0f0f0;font-size:12px;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px">📈 Report</button></div>
   <div class="mov-list" id="dash-movimenti"><div class="empty-state"><div class="empty-icon">📋</div><p>Nessun movimento ancora.<br>Carica una bolla per iniziare.</p></div></div>
 </div>
@@ -1276,12 +1276,11 @@ importArticoliDaPDF=async function(){
   };openFilePicker(input);
 };
 
-// Override buildGinoSystem — unità espanse
+// Override buildGinoSystem — unità espanse + regola cerca sempre
 var _b4BuildGino=buildGinoSystem;
 buildGinoSystem=function(){
   var base=_b4BuildGino();
-  // Aggiungi info conversioni nell'inventario
-  var convInfo='\n\nCONVERSIONI UNITA:\nunitType puo essere: cartoni, pezzi, confezioni, rotoli, kg, coppie, colli.\nSe l\'utente specifica l\'unita, usala esatta. Es: "5 confezioni di tovaglioli" → unitType:"confezioni".\nSe l\'utente NON specifica: usa l\'UdM principale dell\'articolo (campo udm). NON chiedere se pezzi o cartoni quando non c\'è ambiguità reale. Chiedi SOLO se l\'articolo ha pz/ct impostato E la qty potrebbe essere pezzi o cartoni.\nEsempi corretti: "scarica 3 pellicole" con udm=rotoli → unitType:"rotoli" (nessuna domanda). "scarica 5 bicchieri" con pezziPerCartone=24 → chiedi "Intendi 5 cartoni o 5 pezzi?"';
+  var convInfo='\n\nCONVERSIONI UNITA:\nunitType puo essere: cartoni, pezzi, confezioni, rotoli, kg, coppie, colli.\nSe l\'utente specifica l\'unita, usala esatta. Es: "5 confezioni di tovaglioli" → unitType:"confezioni".\nSe l\'utente NON specifica: usa l\'UdM principale dell\'articolo (campo udm). NON chiedere se pezzi o cartoni quando non c\'è ambiguità reale. Chiedi SOLO se l\'articolo ha pz/ct impostato E la qty potrebbe essere pezzi o cartoni.\nEsempi corretti: "scarica 3 pellicole" con udm=rotoli → unitType:"rotoli" (nessuna domanda). "scarica 5 bicchieri" con pezziPerCartone=24 → chiedi "Intendi 5 cartoni o 5 pezzi?"\n\nREGOLA ASSOLUTA — RICERCA ARTICOLI:\nNon dire MAI "non ho informazioni" o "non conosco" riguardo a un articolo SENZA prima aver chiamato cerca_articolo o l\'azione corrispondente. Il motore di ricerca locale trova articoli anche con nomi parziali, singolari/plurali, abbreviazioni vocali ("33 33" corrisponde a "33x33", "eco" a "ECO-NATURAL", "bobina" a qualsiasi bobina). Se l\'utente chiede giacenza → chiama cerca_articolo. Se vuole scaricare → chiama scarica_articolo. SEMPRE. Mai rispondere a parole che un articolo non esiste senza aver cercato.';
   return base.replace('Se è solo una domanda conversazionale','CONVERSIONI:'+convInfo+'\n\nSe è solo una domanda conversazionale');
 };
 
