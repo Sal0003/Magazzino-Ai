@@ -37,7 +37,9 @@ function cercaArticolo(query){
 }
 function cercaArticoliMultipli(query,max){
   if(!query)return[];var q=query.toLowerCase().trim();max=max||8;
-  return inventario.filter(a=>a.code.toLowerCase().indexOf(q)!==-1||a.desc.toLowerCase().indexOf(q)!==-1||(a.codeForn&&a.codeForn.toLowerCase().indexOf(q)!==-1)||(a.fornitore||'').toLowerCase().indexOf(q)!==-1).slice(0,max);
+  var res=inventario.filter(a=>a.code.toLowerCase().indexOf(q)!==-1||a.desc.toLowerCase().indexOf(q)!==-1||(a.codeForn&&a.codeForn.toLowerCase().indexOf(q)!==-1)||(a.fornitore||'').toLowerCase().indexOf(q)!==-1);
+  if(res.length===0){var words=q.split(/\s+/).filter(function(w){return w.length>=2;});if(words.length>1)res=inventario.filter(function(a){var d=a.desc.toLowerCase();return words.every(function(w){return d.indexOf(w)!==-1;});});}
+  return res.slice(0,max);
 }
 
 window.addEventListener("unhandledrejection",e=>{e.preventDefault();return false});
@@ -1050,6 +1052,7 @@ if(azione==='carica_articolo'){
 if(azione==='cerca_articolo'){
   var query=(params.query||'').toLowerCase();
   var trovati=cercaArticoliMultipli(query,6);
+  if(trovati.length===0){var fb=cercaArticolo(query);if(fb)trovati=[fb];}
   if(trovati.length===0)return'Nessun articolo trovato per "'+params.query+'".';
   if(trovati.length===1){var a=trovati[0];var pzInfo=a.pezziPerCartone>0?', '+getTotalPezzi(a)+' pezzi totali':'';return a.desc+': '+a.qty+' '+getUdm(a)+pzInfo+(a.qty<=a.min?' — attenzione, sotto scorta!':'')+'.';}
   return'Trovati '+trovati.length+' articoli: '+trovati.slice(0,3).map(function(a){return a.desc+' '+a.qty+' '+getUdm(a)+(a.qty<=a.min?' ⚠️':'');}).join(', ')+(trovati.length>3?', e altri.':'.')+' Quale intendi?';}
